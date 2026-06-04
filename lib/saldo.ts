@@ -1,0 +1,65 @@
+import { createClient } from "@/lib/supabase/client"
+
+export interface SaldoResult {
+  saldo: number
+  floatG2GPending: number
+  g2gBalance: number
+  initialSaldo: number
+  totalDeposits: number
+  directProfits: number
+  wdReceived: number
+  g2gBuyCosts: number
+}
+
+const EFF_COMM_TOTAL = 7.99 * (1 + 11 / 100) / 100 + 1.99 / 100  // 8.87% + 1.99% = 10.86%
+
+export async function computeSaldo(): Promise<SaldoResult> {
+  const supabase = createClient()
+
+  const [{ data: deposits }, { data: txData }, { data: wdData }, { data: psConfig }] = await Promise.all([
+    supabase.from("deposits").select("amount_idr"),
+    supabase.from("transactions").select(
+      "channel, status, profit_idr, buy_price_idr, gold_amount, sell_price_idr, withdrawal_id"
+    ),
+    supabase.from("withdrawals").select("amount_received_idr"),
+    supabase.from("profit_sharing_config").select("initial_saldo").single(),
+  ])
+
+  const initialSaldo = (psConfig as any)?.initial_saldo ?? 0
+  const totalDeposits = (deposits ?? []).reduce((s: number, d: any) => s + d.amount_idr, 0)
+
+  const txs = (txData ?? []) as {
+    channel: string; status: string; profit_idr: number | null
+    buy_price_idr: number; gold_amount: number; sell_price_idr: number
+    withdrawal_id: string | null
+  }[]
+
+  const wds = (wdData ?? []) as { amount_received_idr: number }[]
+
+  // Direct profit masuk saldo saat completed
+  const directProfits = txs
+    .filter(t => t.channel === "direct" && t.status === "completed")
+    .reduce((s, t) => s + (t.profit_idr ?? 0), 0)
+
+  // G2G withdrawal net masuk saldo
+  const wdReceived = wds.reduce((s, w) => s + w.amount_received_idr, 0)
+
+  // G2G buy cost keluar dari saldo (non-cancelled)
+  const g2gBuyCosts = txs
+    .filter(t => t.channel === "g2g" && t.status !== "cancelled")
+    .reduce((s, t) => s + t.buy_price_idr * t.gold_amount, 0)
+
+  const saldo = initialSaldo + totalDeposits + directProfits + wdReceived - g2gBuyCosts
+
+  // G2G pending = estimasi net dari G2G (belum buyer konfirmasi)
+  const floatG2GPending = txs
+    .filter(t => t.channel === "g2g" && t.status === "pending")
+    .reduce((s, t) => s + t.sell_price_idr * t.gold_amount * (1 - EFF_COMM_TOTAL), 0)
+
+  // G2G completed belum withdrawal
+  const g2gBalance = txs
+    .filter(t => t.channel === "g2g" && t.status === "completed" && !t.withdrawal_id)
+    .reduce((s, t) => s + t.sell_price_idr * t.gold_amount * (1 - EFF_COMM_TOTAL), 0)
+
+  return { saldo, floatG2GPending, g2gBalance, initialSaldo, totalDeposits, directProfits, wdReceived, g2gBuyCosts }
+}
