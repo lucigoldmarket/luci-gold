@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Loader2, Pencil, Trash2, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { RequireAdmin } from "@/components/require-admin"
+import { useProfile } from "@/lib/hooks/use-profile"
 
 function formatRupiah(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -132,6 +132,7 @@ function ExpenseForm({
 }
 
 export default function PengeluaranPage() {
+  const { isAdmin } = useProfile()
   const [expenses, setExpenses] = useState<ExpenseRow[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -166,7 +167,6 @@ export default function PengeluaranPage() {
   for (const e of expenses) byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount_idr
 
   return (
-    <RequireAdmin>
     <div className="flex min-h-screen bg-background">
       <Sidebar />
       <div className="flex-1 page-content">
@@ -177,9 +177,11 @@ export default function PengeluaranPage() {
               <h1 className="font-heading text-3xl font-bold text-foreground mb-1">Pengeluaran</h1>
               <p className="text-muted-foreground text-sm">Log semua biaya operasional · Termasuk auto-log dari withdrawal</p>
             </div>
-            <Button onClick={() => { setEditItem(undefined); setShowForm(true) }} className="bg-gold hover:bg-gold/90 text-background">
-              <Plus className="h-4 w-4 mr-2" /> Tambah Pengeluaran
-            </Button>
+            {isAdmin && (
+              <Button onClick={() => { setEditItem(undefined); setShowForm(true) }} className="bg-gold hover:bg-gold/90 text-background">
+                <Plus className="h-4 w-4 mr-2" /> Tambah Pengeluaran
+              </Button>
+            )}
           </div>
 
           {/* Summary by category */}
@@ -229,7 +231,7 @@ export default function PengeluaranPage() {
                         <TableHead className="text-muted-foreground">Deskripsi</TableHead>
                         <TableHead className="text-muted-foreground">Tipe</TableHead>
                         <TableHead className="text-muted-foreground text-right">Nominal</TableHead>
-                        <TableHead className="w-16"></TableHead>
+                        {isAdmin && <TableHead className="w-16"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -252,6 +254,7 @@ export default function PengeluaranPage() {
                           <TableCell className="text-right text-danger font-medium tabular-nums">
                             -{formatRupiah(e.amount_idr)}
                           </TableCell>
+                          {isAdmin && (
                           <TableCell>
                             <div className="flex items-center gap-1">
                               <button onClick={() => { setEditItem(e); setShowForm(true) }}
@@ -264,6 +267,7 @@ export default function PengeluaranPage() {
                               </button>
                             </div>
                           </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -279,19 +283,20 @@ export default function PengeluaranPage() {
         </main>
       </div>
 
-      <ExpenseForm open={showForm} onClose={() => { setShowForm(false); setEditItem(undefined) }} onSaved={load} edit={editItem} />
+      {isAdmin && <ExpenseForm open={showForm} onClose={() => { setShowForm(false); setEditItem(undefined) }} onSaved={load} edit={editItem} />}
 
-      <Dialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
-        <DialogContent className="bg-card border-border max-w-sm">
-          <DialogHeader><DialogTitle className="text-foreground">Hapus Pengeluaran?</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Tindakan ini tidak bisa dibatalkan.</p>
-          <div className="flex gap-2 mt-2">
-            <Button variant="outline" className="flex-1 border-border" onClick={() => setDeleteId(null)}>Batal</Button>
-            <Button onClick={() => handleDelete(deleteId!)} className="flex-1 bg-danger hover:bg-danger/90 text-white">Hapus</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {isAdmin && (
+        <Dialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
+          <DialogContent className="bg-card border-border max-w-sm">
+            <DialogHeader><DialogTitle className="text-foreground">Hapus Pengeluaran?</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">Tindakan ini tidak bisa dibatalkan.</p>
+            <div className="flex gap-2 mt-2">
+              <Button variant="outline" className="flex-1 border-border" onClick={() => setDeleteId(null)}>Batal</Button>
+              <Button onClick={() => handleDelete(deleteId!)} className="flex-1 bg-danger hover:bg-danger/90 text-white">Hapus</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
-    </RequireAdmin>
   )
 }

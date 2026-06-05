@@ -35,7 +35,11 @@ const adminMenuItems = [
 
 const investorMenuItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/" },
+  { title: "Kalkulator G2G", icon: Calculator, href: "/kalkulator" },
+  { title: "Transaksi", icon: FileText, href: "/transaksi" },
+  { title: "Pengeluaran", icon: Receipt, href: "/pengeluaran" },
   { title: "Laporan", icon: BarChart3, href: "/laporan" },
+  { title: "Pengaturan", icon: Settings, href: "/pengaturan" },
 ]
 
 const SIDEBAR_EXPANDED = 264   // px offset for content (240px sidebar + 16px left inset + 8px gap)

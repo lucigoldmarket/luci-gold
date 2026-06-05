@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
@@ -38,7 +38,7 @@ export function RecentTransactions() {
   }, [])
 
   return (
-    <Card className="card-glow border-border bg-card/50 backdrop-blur-sm">
+    <Card className="card-glow border-border bg-card">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -106,7 +106,7 @@ export function RecentTransactions() {
                     <p className={cn("font-semibold text-sm",
                       tx.profit_idr != null && tx.profit_idr >= 0 ? "text-success" : "text-danger"
                     )}>
-                      {tx.profit_idr != null ? formatRupiah(tx.profit_idr) : "—"}
+                      {tx.profit_idr != null ? formatRupiah(tx.profit_idr) : "â€”"}
                     </p>
                     <Badge variant="outline" className={cn("text-xs border-0",
                       tx.status === "completed" ? "bg-success/10 text-success" :
@@ -125,3 +125,4 @@ export function RecentTransactions() {
     </Card>
   )
 }
+

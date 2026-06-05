@@ -57,21 +57,21 @@
   /* LUCI GOLD Dark Theme - Always dark */
   --background: #0A0A0B;
   --foreground: #F5F5F5;
-  --card: #111113;
+  --card: #18181C;
   --card-foreground: #F5F5F5;
-  --popover: #111113;
+  --popover: #18181C;
   --popover-foreground: #F5F5F5;
   --primary: #C9A84C;
   --primary-foreground: #0A0A0B;
-  --secondary: #1A1A1D;
+  --secondary: #202026;
   --secondary-foreground: #F5F5F5;
-  --muted: #1A1A1D;
-  --muted-foreground: #71717A;
+  --muted: #202026;
+  --muted-foreground: #8A8A96;
   --accent: #C9A84C;
   --accent-foreground: #0A0A0B;
   --destructive: #E05252;
-  --border: rgba(201, 168, 76, 0.15);
-  --input: rgba(201, 168, 76, 0.1);
+  --border: rgba(201, 168, 76, 0.25);
+  --input: rgba(201, 168, 76, 0.12);
   --ring: #C9A84C;
   
   /* LUCI GOLD Custom Colors */
@@ -91,13 +91,13 @@
   --radius: 0.75rem;
   
   /* Sidebar */
-  --sidebar: #0A0A0B;
+  --sidebar: #111114;
   --sidebar-foreground: #F5F5F5;
   --sidebar-primary: #C9A84C;
   --sidebar-primary-foreground: #0A0A0B;
-  --sidebar-accent: rgba(201, 168, 76, 0.1);
+  --sidebar-accent: rgba(201, 168, 76, 0.12);
   --sidebar-accent-foreground: #C9A84C;
-  --sidebar-border: rgba(201, 168, 76, 0.15);
+  --sidebar-border: rgba(201, 168, 76, 0.22);
   --sidebar-ring: #C9A84C;
 }
 
@@ -142,7 +142,7 @@
 
 /* Card glow effect */
 .card-glow {
-  box-shadow: 0 0 40px rgba(201, 168, 76, 0.05);
+  box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.08), 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* Gold border gradient */

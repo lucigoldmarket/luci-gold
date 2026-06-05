@@ -33,10 +33,10 @@ function StatCard({ title, value, sub, subType = "neutral", icon }: {
   subType?: "positive" | "negative" | "neutral"; icon: React.ReactNode
 }) {
   return (
-    <Card className="card-glow border-border bg-card/50 backdrop-blur-sm">
+    <Card className="card-glow border-border bg-card hover:border-gold/40 transition-colors">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">{icon}</div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">{icon}</div>
       </CardHeader>
       <CardContent>
         <div className="text-xl font-bold text-foreground tabular-nums">{value}</div>
@@ -128,9 +128,9 @@ export function HeroStats() {
   const saldoOk = saldoData && saldoData.saldo >= 0
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/5 p-6 md:p-8">
-      <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
-      <div className="absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-primary/5 blur-3xl" />
+    <div className="relative overflow-hidden rounded-2xl border border-gold/30 bg-gradient-to-br from-[#1C1A12] via-card to-[#181810] p-6 md:p-8" style={{boxShadow: "0 0 60px rgba(201,168,76,0.08), inset 0 1px 0 rgba(201,168,76,0.15)"}}>
+      <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+      <div className="absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-primary/8 blur-3xl" />
       <div className="relative">
         <p className="text-sm text-muted-foreground mb-1 flex items-center gap-2">
           <Wallet className="h-4 w-4" /> Saldo

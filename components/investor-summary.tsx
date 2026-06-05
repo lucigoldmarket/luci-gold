@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
@@ -51,7 +51,7 @@ export function InvestorSummary() {
   }, [])
 
   return (
-    <Card className="card-glow border-border bg-card/50 backdrop-blur-sm">
+    <Card className="card-glow border-border bg-card">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -61,7 +61,7 @@ export function InvestorSummary() {
             <div>
               <CardTitle className="text-lg font-semibold text-foreground">Profit Sharing</CardTitle>
               <p className="text-sm text-muted-foreground">
-                {loading ? "Memuat..." : `${investorCount} investor · split rata`}
+                {loading ? "Memuat..." : `${investorCount} investor Â· split rata`}
               </p>
             </div>
           </div>
@@ -125,3 +125,4 @@ export function InvestorSummary() {
     </Card>
   )
 }
+

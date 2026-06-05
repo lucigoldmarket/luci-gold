@@ -137,7 +137,7 @@ export function ProfitChart() {
   const hasData = data.some((d) => d.profit > 0)
 
   return (
-    <Card className="card-glow border-border bg-card/50 backdrop-blur-sm">
+    <Card className="card-glow border-border bg-card">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">

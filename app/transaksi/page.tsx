@@ -14,8 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Search, ArrowUpRight, ArrowDownLeft, CheckCircle, AlertTriangle, Loader2, Pencil, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { RequireAdmin } from "@/components/require-admin"
 import { calcG2GFromSell, calcDirectFromBuy, type G2GFeeParams } from "@/lib/calc"
+import { useProfile } from "@/lib/hooks/use-profile"
 import type { Transaction } from "@/lib/types"
 
 function formatRupiah(num: number) {
@@ -231,6 +231,7 @@ function DeleteConfirm({ id, onDone }: { id: string; onDone: () => void }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function TransaksiPage() {
+  const { isAdmin } = useProfile()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -264,7 +265,6 @@ export default function TransaksiPage() {
   const effComm = fee.commissionPct * (1 + fee.vatPct / 100)
 
   return (
-    <RequireAdmin>
     <div className="flex min-h-screen bg-background">
       <Sidebar />
       <div className="flex-1 page-content">
@@ -275,9 +275,11 @@ export default function TransaksiPage() {
               <h1 className="font-heading text-3xl font-bold text-foreground mb-1">Transaksi</h1>
               <p className="text-muted-foreground text-sm">Catat dan kelola semua transaksi trading gold</p>
             </div>
-            <Button onClick={() => { setEditTx(undefined); setShowForm(true) }} className="bg-gold hover:bg-gold/90 text-background">
-              <Plus className="h-4 w-4 mr-2" /> Transaksi Baru
-            </Button>
+            {isAdmin && (
+              <Button onClick={() => { setEditTx(undefined); setShowForm(true) }} className="bg-gold hover:bg-gold/90 text-background">
+                <Plus className="h-4 w-4 mr-2" /> Transaksi Baru
+              </Button>
+            )}
           </div>
 
           <Card className="bg-card border-border mb-4">
@@ -317,7 +319,7 @@ export default function TransaksiPage() {
               ) : filtered.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
                   <p className="text-sm">Belum ada transaksi.</p>
-                  <button onClick={() => setShowForm(true)} className="text-gold text-sm mt-1 hover:underline">+ Tambah transaksi pertama</button>
+                  {isAdmin && <button onClick={() => setShowForm(true)} className="text-gold text-sm mt-1 hover:underline">+ Tambah transaksi pertama</button>}
                 </div>
               ) : (
                 <Table>
@@ -333,7 +335,7 @@ export default function TransaksiPage() {
                       <TableHead className="text-muted-foreground text-right">Fee</TableHead>
                       <TableHead className="text-muted-foreground text-right">Profit</TableHead>
                       <TableHead className="text-muted-foreground">Status</TableHead>
-                      <TableHead className="text-muted-foreground w-16"></TableHead>
+                      {isAdmin && <TableHead className="text-muted-foreground w-16"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -389,6 +391,7 @@ export default function TransaksiPage() {
                               {tx.status === "completed" ? "Selesai" : tx.status === "pending" ? "Pending" : "Batal"}
                             </Badge>
                           </TableCell>
+                          {isAdmin && (
                           <TableCell>
                             <div className="flex items-center gap-1">
                               <button
@@ -407,6 +410,7 @@ export default function TransaksiPage() {
                               </button>
                             </div>
                           </TableCell>
+                          )}
                         </TableRow>
                       )
                     })}
@@ -418,21 +422,22 @@ export default function TransaksiPage() {
         </main>
       </div>
 
-      <TransactionForm
-        open={showForm}
-        onClose={() => { setShowForm(false); setEditTx(undefined) }}
-        onSaved={fetchData}
-        fee={fee}
-        editTx={editTx}
-      />
+      {isAdmin && (
+        <TransactionForm
+          open={showForm}
+          onClose={() => { setShowForm(false); setEditTx(undefined) }}
+          onSaved={fetchData}
+          fee={fee}
+          editTx={editTx}
+        />
+      )}
 
-      {deleteTxId && (
+      {isAdmin && deleteTxId && (
         <DeleteConfirm
           id={deleteTxId}
           onDone={() => { setDeleteTxId(null); fetchData() }}
         />
       )}
     </div>
-    </RequireAdmin>
   )
 }

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
@@ -47,7 +47,7 @@ export function G2GCalculator() {
   const totalCost = eff + fee.withdrawalFeePct
 
   return (
-    <Card className="card-glow border-border bg-card/50 backdrop-blur-sm">
+    <Card className="card-glow border-border bg-card">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -56,7 +56,7 @@ export function G2GCalculator() {
             </div>
             <div>
               <CardTitle className="text-base font-semibold text-foreground">Quick Calc G2G</CardTitle>
-              <p className="text-xs text-muted-foreground">Beli → Min Post</p>
+              <p className="text-xs text-muted-foreground">Beli â†’ Min Post</p>
             </div>
           </div>
           <Link href="/kalkulator" className="text-xs text-primary hover:text-gold flex items-center gap-1">
@@ -116,3 +116,4 @@ export function G2GCalculator() {
     </Card>
   )
 }
+
