@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Save, Loader2, Database, Users, PieChart, CheckCircle, AlertTriangle, Pencil, Trash2, Wallet } from "lucide-react"
+import { Save, Loader2, Database, Users, PieChart, CheckCircle, AlertTriangle, Pencil, Trash2, Wallet, Copy, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { RequireAdmin } from "@/components/require-admin"
@@ -397,15 +397,46 @@ function UsersTab() {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
+  const [inviteCode, setInviteCode] = useState("")
+  const [savingCode, setSavingCode] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   async function load() {
     const supabase = createClient()
-    const { data } = await supabase.from("profiles").select("*").order("created_at")
-    setUsers((data as Profile[]) ?? [])
+    const [{ data: usersData }, { data: cfg }] = await Promise.all([
+      supabase.from("profiles").select("*").order("created_at"),
+      supabase.from("profit_sharing_config").select("invite_code").single(),
+    ])
+    setUsers((usersData as Profile[]) ?? [])
+    if (cfg) setInviteCode((cfg as any).invite_code ?? "")
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
+
+  async function saveInviteCode() {
+    setSavingCode(true)
+    const supabase = createClient()
+    const { data: cfg } = await supabase.from("profit_sharing_config").select("id").single()
+    await supabase.from("profit_sharing_config")
+      .update({ invite_code: inviteCode.trim().toUpperCase() })
+      .eq("id", (cfg as any).id)
+    setSavingCode(false)
+    setInviteCode(inviteCode.trim().toUpperCase())
+    setMsg({ type: "ok", text: "Kode undangan disimpan." })
+  }
+
+  function regenerateCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    const code = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")
+    setInviteCode(code)
+  }
+
+  function copyCode() {
+    navigator.clipboard.writeText(inviteCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   async function changeRole(id: string, role: "admin" | "investor") {
     setUpdating(id)
@@ -425,11 +456,48 @@ function UsersTab() {
   }
 
   return (
+    <div className="space-y-6">
+    {/* Invite Code */}
+    <Card className="bg-card border-border">
+      <CardHeader>
+        <CardTitle className="text-foreground">Kode Undangan</CardTitle>
+        <CardDescription className="text-muted-foreground">
+          Bagikan kode ini ke orang yang ingin kamu daftarkan. Mereka daftar di halaman <span className="text-gold font-mono">/daftar</span>.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-2 items-end">
+          <div className="space-y-1.5 flex-1">
+            <Label className="text-muted-foreground">Kode Aktif</Label>
+            <Input
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              className="bg-background border-border text-foreground font-mono tracking-widest text-lg"
+              placeholder="LUCIXXX"
+              maxLength={20}
+            />
+          </div>
+          <Button variant="outline" size="icon" onClick={copyCode} className="border-border h-10 w-10" title="Salin kode">
+            {copied ? <CheckCircle className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+          </Button>
+          <Button variant="outline" size="icon" onClick={regenerateCode} className="border-border h-10 w-10" title="Buat kode baru acak">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">Kode tidak case-sensitive. Klik ikon refresh untuk generate kode acak, lalu simpan.</p>
+        <Button onClick={saveInviteCode} disabled={savingCode || !inviteCode} className="bg-gold hover:bg-gold/90 text-background">
+          {savingCode ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+          Simpan Kode
+        </Button>
+      </CardContent>
+    </Card>
+
+    {/* User list */}
     <Card className="bg-card border-border">
       <CardHeader>
         <CardTitle className="text-foreground">Manajemen Pengguna</CardTitle>
         <CardDescription className="text-muted-foreground">
-          Untuk menambah user baru: Supabase Dashboard → Authentication → Users → Add user
+          Investor yang sudah daftar sendiri akan muncul di sini. Kamu bisa ubah role dan status aktif mereka.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -482,6 +550,7 @@ function UsersTab() {
         )}
       </CardContent>
     </Card>
+    </div>
   )
 }
 

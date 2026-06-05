@@ -1,6 +1,7 @@
 ﻿"use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -82,7 +83,8 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground">
-          Tidak punya akun? Hubungi Admin.
+          Belum punya akun?{" "}
+          <Link href="/daftar" className="text-gold hover:underline">Daftar dengan kode undangan</Link>
         </p>
       </div>
     </div>

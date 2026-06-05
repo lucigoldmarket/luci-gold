@@ -56,7 +56,7 @@ export function Header() {
 
         <div>
           <h1 className="font-heading text-2xl font-semibold text-foreground">{page.title}</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground" suppressHydrationWarning>
             {pathname === "/"
               ? `${getGreeting()}${firstName ? `, ${firstName}` : ""} · ${formatDate()}`
               : page.sub}
@@ -68,7 +68,7 @@ export function Header() {
       {pathname !== "/" && (
         <div className="hidden md:flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2">
           <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-          <span className="text-sm text-muted-foreground">{formatDate()}</span>
+          <span className="text-sm text-muted-foreground" suppressHydrationWarning>{formatDate()}</span>
         </div>
       )}
     </header>
