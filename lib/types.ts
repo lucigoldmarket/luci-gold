@@ -42,6 +42,7 @@ export interface Transaction {
   created_by: string | null
   week_number: number
   withdrawal_id: string | null
+  buyer_vat_pct: number | null
 }
 
 export interface Withdrawal {

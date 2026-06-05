@@ -17,7 +17,7 @@ export async function computeSaldo(): Promise<SaldoResult> {
   const [{ data: deposits }, { data: txData }, { data: wdData }, { data: psConfig }, { data: feeConfig }] = await Promise.all([
     supabase.from("deposits").select("amount_idr"),
     supabase.from("transactions").select(
-      "channel, status, profit_idr, buy_price_idr, gold_amount, sell_price_idr, withdrawal_id"
+      "channel, status, profit_idr, buy_price_idr, gold_amount, sell_price_idr, withdrawal_id, buyer_vat_pct"
     ),
     supabase.from("withdrawals").select("amount_received_idr"),
     supabase.from("profit_sharing_config").select("initial_saldo").single(),
@@ -25,10 +25,11 @@ export async function computeSaldo(): Promise<SaldoResult> {
   ])
 
   const fc = feeConfig as any
-  const vatMult = 1 + (fc?.vat_pct ?? 11) / 100
-  const EFF_COMM_TOTAL =
-    (fc?.commission_pct ?? 7.99) * vatMult / 100 +
-    (fc?.withdrawal_fee_pct ?? 2.48) * vatMult / 100
+  const vatPct = fc?.vat_pct ?? 11
+  const commPct = fc?.commission_pct ?? 7.99
+  const wdFeePct = fc?.withdrawal_fee_pct ?? 2.48
+  // WD fee: same rate for all transactions (no buyer VAT on disbursement)
+  const effWdFrac = wdFeePct * (1 + vatPct / 100) / 100
 
   const initialSaldo = (psConfig as any)?.initial_saldo ?? 0
   const totalDeposits = (deposits ?? []).reduce((s: number, d: any) => s + d.amount_idr, 0)
@@ -36,7 +37,7 @@ export async function computeSaldo(): Promise<SaldoResult> {
   const txs = (txData ?? []) as {
     channel: string; status: string; profit_idr: number | null
     buy_price_idr: number; gold_amount: number; sell_price_idr: number
-    withdrawal_id: string | null
+    withdrawal_id: string | null; buyer_vat_pct: number | null
   }[]
 
   const wds = (wdData ?? []) as { amount_received_idr: number }[]
@@ -56,15 +57,22 @@ export async function computeSaldo(): Promise<SaldoResult> {
 
   const saldo = initialSaldo + totalDeposits + directProfits + wdReceived - g2gBuyCosts
 
+  function calcNetPerTx(t: typeof txs[0]) {
+    const buyerVat = t.buyer_vat_pct ?? 0
+    // Buyer country VAT applies only to commission, not to WD disbursement fee
+    const effCommFrac = commPct * (1 + vatPct / 100 + buyerVat / 100) / 100
+    return t.sell_price_idr * t.gold_amount * (1 - effCommFrac - effWdFrac)
+  }
+
   // G2G pending = estimasi net dari G2G (belum buyer konfirmasi)
   const floatG2GPending = txs
     .filter(t => t.channel === "g2g" && t.status === "pending")
-    .reduce((s, t) => s + t.sell_price_idr * t.gold_amount * (1 - EFF_COMM_TOTAL), 0)
+    .reduce((s, t) => s + calcNetPerTx(t), 0)
 
   // G2G completed belum withdrawal
   const g2gBalance = txs
     .filter(t => t.channel === "g2g" && t.status === "completed" && !t.withdrawal_id)
-    .reduce((s, t) => s + t.sell_price_idr * t.gold_amount * (1 - EFF_COMM_TOTAL), 0)
+    .reduce((s, t) => s + calcNetPerTx(t), 0)
 
   return { saldo, floatG2GPending, g2gBalance, initialSaldo, totalDeposits, directProfits, wdReceived, g2gBuyCosts }
 }

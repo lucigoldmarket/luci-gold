@@ -32,6 +32,7 @@ interface TxRow {
   profit_idr: number | null
   notes: string | null
   withdrawal_id?: string | null
+  buyer_vat_pct?: number | null
 }
 
 interface WithdrawalRow {
@@ -83,7 +84,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
 
       const [txResult, feeResult] = await Promise.all([
         supabase.from("transactions")
-          .select("id, transaction_date, gold_amount, sell_price_idr, buy_price_idr, profit_idr, notes, withdrawal_id, status")
+          .select("id, transaction_date, gold_amount, sell_price_idr, buy_price_idr, profit_idr, notes, withdrawal_id, status, buyer_vat_pct")
           .eq("channel", "g2g")
           .in("status", ["pending", "completed"])
           .is("withdrawal_id", null)
@@ -97,7 +98,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
       if (txResult.error) {
         const { data: fallback } = await supabase
           .from("transactions")
-          .select("id, transaction_date, gold_amount, sell_price_idr, buy_price_idr, profit_idr, notes, status")
+          .select("id, transaction_date, gold_amount, sell_price_idr, buy_price_idr, profit_idr, notes, status, buyer_vat_pct")
           .eq("channel", "g2g")
           .in("status", ["pending", "completed"])
           .order("transaction_date", { ascending: false })
@@ -120,18 +121,21 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
     load()
   }, [])
 
-  // Effective rates (VAT applies to both commission and disbursement fee)
+  // Effective rates (buyer country VAT applies to commission only, not WD disbursement)
   const vatMult = 1 + feeConfig.vatPct / 100
-  const effectiveCommFrac = feeConfig.commissionPct * vatMult / 100
   const effectiveWdPctNum = feeConfig.withdrawalFeePct * vatMult  // e.g. 2.7528 (%)
   const effectiveWdFrac = effectiveWdPctNum / 100
 
   const selectedTxs = transactions.filter((t) => selected.has(t.id))
 
   const estimatedBalance = useMemo(() =>
-    selectedTxs.reduce((s, t) => s + t.sell_price_idr * t.gold_amount * (1 - effectiveCommFrac), 0),
+    selectedTxs.reduce((s, t) => {
+      const buyerVat = t.buyer_vat_pct ?? 0
+      const effCommFrac = feeConfig.commissionPct * (1 + feeConfig.vatPct / 100 + buyerVat / 100) / 100
+      return s + t.sell_price_idr * t.gold_amount * (1 - effCommFrac)
+    }, 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedTxs, effectiveCommFrac]
+    [selectedTxs, feeConfig]
   )
 
   const withdrawAmount = useManual ? manualAmount : estimatedBalance

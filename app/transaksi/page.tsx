@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Search, ArrowUpRight, ArrowDownLeft, CheckCircle, AlertTriangle, Loader2, Pencil, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { calcG2GFromSell, calcDirectFromBuy, type G2GFeeParams } from "@/lib/calc"
+import { type G2GFeeParams } from "@/lib/calc"
 import { useProfile } from "@/lib/hooks/use-profile"
 import type { Transaction } from "@/lib/types"
 
@@ -51,6 +51,7 @@ function TransactionForm({
   const [status, setStatus] = useState<"pending" | "completed" | "cancelled">("pending")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [buyerVatPct, setBuyerVatPct] = useState(0)
 
   useEffect(() => {
     if (editTx) {
@@ -62,26 +63,29 @@ function TransactionForm({
       setPaymentFeePct(editTx.payment_fee_pct ?? 0)
       setNotes(editTx.notes ?? "")
       setStatus(editTx.status)
+      setBuyerVatPct(editTx.buyer_vat_pct ?? 0)
     } else {
       setChannel("g2g"); setDate(new Date().toISOString().slice(0, 10))
       setGoldAmount(0); setBuyPrice(0); setSellPrice(0)
-      setPaymentFeePct(0); setNotes(""); setStatus("pending")
+      setPaymentFeePct(0); setNotes(""); setStatus("pending"); setBuyerVatPct(0)
     }
   }, [editTx, open])
-
-  const effComm = fee.commissionPct * (1 + fee.vatPct / 100)
 
   const preview = useMemo(() => {
     if (!goldAmount || !buyPrice || !sellPrice) return null
     if (channel === "g2g") {
-      const r = calcG2GFromSell(sellPrice, 0, fee, buyPrice)
-      return { profit: r.profitPerUnit * goldAmount, pct: (r.profitPerUnit / sellPrice) * 100, effComm }
+      // Buyer country VAT applies to commission only, not to WD disbursement
+      const effCommFrac = fee.commissionPct * (1 + fee.vatPct / 100 + buyerVatPct / 100) / 100
+      const effWdFrac = fee.withdrawalFeePct * (1 + fee.vatPct / 100) / 100
+      const netPerUnit = sellPrice * (1 - effCommFrac - effWdFrac)
+      const profitTotal = (netPerUnit - buyPrice) * goldAmount
+      return { profit: profitTotal, pct: profitTotal / (sellPrice * goldAmount) * 100, effComm: effCommFrac * 100 }
     } else {
       const net = sellPrice * (1 - paymentFeePct / 100)
       const profit = (net - buyPrice) * goldAmount
       return { profit, pct: (profit / (sellPrice * goldAmount)) * 100, effComm: 0 }
     }
-  }, [channel, goldAmount, buyPrice, sellPrice, paymentFeePct, fee, effComm])
+  }, [channel, goldAmount, buyPrice, sellPrice, paymentFeePct, fee, buyerVatPct])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -95,6 +99,7 @@ function TransactionForm({
       buy_price_idr: buyPrice, sell_price_idr: sellPrice,
       commission_fee_pct: channel === "g2g" ? fee.commissionPct : null,
       payment_fee_pct: channel === "direct" ? paymentFeePct : null,
+      buyer_vat_pct: channel === "g2g" ? buyerVatPct : null,
       status, profit_idr: profitIdr, notes: notes || null,
     }
     let dbErr
@@ -160,6 +165,38 @@ function TransactionForm({
                 </SelectContent>
               </Select>
             </div>
+            {channel === "g2g" && (
+              <div className="col-span-2 space-y-1.5">
+                <Label className="text-muted-foreground text-sm">VAT Negara Buyer</Label>
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {[
+                    { label: "0% ID/Other", value: 0 },
+                    { label: "+10% KR/AU", value: 10 },
+                    { label: "+20% UK/EU", value: 20 },
+                    { label: "+25% NO/SE", value: 25 },
+                  ].map(p => (
+                    <button key={p.value} type="button" onClick={() => setBuyerVatPct(p.value)}
+                      className={cn("px-2.5 py-1 rounded-md text-xs border transition-colors",
+                        buyerVatPct === p.value
+                          ? "bg-gold text-background border-gold"
+                          : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                      )}>
+                      {p.label}
+                    </button>
+                  ))}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <span className="text-xs text-muted-foreground">Custom:</span>
+                    <Input type="number" value={buyerVatPct || ""}
+                      onChange={(e) => setBuyerVatPct(Number(e.target.value))}
+                      onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                      className="w-16 h-7 text-xs bg-background border-border text-foreground px-2"
+                      min={0} max={50} step={1} placeholder="%" />
+                    <span className="text-xs text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Lihat flag negara buyer di G2G — dikenakan atas komisi saja</p>
+              </div>
+            )}
             <div className="col-span-2 space-y-1.5">
               <Label className="text-muted-foreground text-sm">Catatan</Label>
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-background border-border text-foreground" placeholder="Nama buyer, game, dll." />
@@ -179,10 +216,10 @@ function TransactionForm({
                   </p>
                 </div>
               </div>
-              {channel === "g2g" && (
+              {channel === "g2g" && preview && (
                 <p className="text-xs text-muted-foreground px-1">
-                  ✅ Sudah termasuk komisi {effComm.toFixed(2)}% (efektif) + withdrawal {fee.withdrawalFeePct}%
-                  <br />⚠️ Belum termasuk Rp 19.999 fixed fee per penarikan
+                  Komisi efektif {preview.effComm.toFixed(4)}%
+                  {buyerVatPct > 0 ? ` (incl. buyer VAT +${buyerVatPct}%)` : ""} + WD fee sudah diperhitungkan
                 </p>
               )}
             </div>
@@ -262,8 +299,6 @@ export default function TransaksiPage() {
     return true
   }), [transactions, filterChannel, filterStatus, search])
 
-  const effComm = fee.commissionPct * (1 + fee.vatPct / 100)
-
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
@@ -342,11 +377,14 @@ export default function TransaksiPage() {
                     {filtered.map((tx) => {
                       const modal = tx.buy_price_idr * tx.gold_amount
                       const grossSell = tx.sell_price_idr * tx.gold_amount
+                      const txBuyerVat = tx.buyer_vat_pct ?? 0
+                      const txEffCommPct = fee.commissionPct * (1 + fee.vatPct / 100 + txBuyerVat / 100)
+                      const txEffWdPct = fee.withdrawalFeePct * (1 + fee.vatPct / 100)
                       const feeAmt = tx.channel === "g2g"
-                        ? grossSell * (effComm + fee.withdrawalFeePct) / 100
+                        ? grossSell * (txEffCommPct + txEffWdPct) / 100
                         : tx.payment_fee_pct ? grossSell * tx.payment_fee_pct / 100 : 0
                       const feeLabel = tx.channel === "g2g"
-                        ? `${effComm.toFixed(1)}%+${fee.withdrawalFeePct}%`
+                        ? `${txEffCommPct.toFixed(2)}%+${txEffWdPct.toFixed(2)}%${txBuyerVat > 0 ? ` (+${txBuyerVat}%VAT)` : ""}`
                         : tx.payment_fee_pct ? `${tx.payment_fee_pct}%` : "—"
                       return (
                         <TableRow key={tx.id} className="border-border hover:bg-background/50">
