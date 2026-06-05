@@ -158,6 +158,99 @@
 @media (min-width: 768px) {
   .page-content {
     padding-left: var(--sidebar-offset);
-    transition: padding-left 300ms ease;
+    transition: padding-left 200ms ease;
   }
+}
+
+/* Mobile responsive improvements */
+@media (max-width: 767px) {
+  /* Tables scroll horizontally on small screens */
+  .page-content .relative.w-full.overflow-auto {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent table columns from being too cramped */
+  .page-content table {
+    min-width: 480px;
+  }
+
+  /* Better touch targets */
+  .page-content button {
+    min-height: 36px;
+  }
+
+  /* Full-width selects and inputs on mobile */
+  .page-content .w-52 {
+    width: 100%;
+  }
+}
+
+/* Smooth page-content transition with sidebar */
+.page-content {
+  min-height: 100vh;
+}
+
+/* ─── Page & Card Entrance Animations ─────────────────────────────────────── */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Apply fade-up to main page headings */
+.page-content main > div:first-child {
+  animation: fade-in 0.4s ease both;
+}
+
+/* Cards animate in with stagger via nth-child */
+.page-content main .grid > * {
+  animation: fade-up 0.45s ease both;
+}
+.page-content main .grid > *:nth-child(1) { animation-delay: 0.05s; }
+.page-content main .grid > *:nth-child(2) { animation-delay: 0.10s; }
+.page-content main .grid > *:nth-child(3) { animation-delay: 0.15s; }
+.page-content main .grid > *:nth-child(4) { animation-delay: 0.20s; }
+.page-content main .grid > *:nth-child(5) { animation-delay: 0.25s; }
+
+/* Table rows slide in */
+.page-content tbody tr {
+  animation: fade-up 0.3s ease both;
+}
+.page-content tbody tr:nth-child(1) { animation-delay: 0.02s; }
+.page-content tbody tr:nth-child(2) { animation-delay: 0.04s; }
+.page-content tbody tr:nth-child(3) { animation-delay: 0.06s; }
+.page-content tbody tr:nth-child(4) { animation-delay: 0.08s; }
+.page-content tbody tr:nth-child(5) { animation-delay: 0.10s; }
+.page-content tbody tr:nth-child(6) { animation-delay: 0.12s; }
+.page-content tbody tr:nth-child(7) { animation-delay: 0.14s; }
+.page-content tbody tr:nth-child(8) { animation-delay: 0.16s; }
+
+/* Login card scale-in */
+.backdrop-blur-md {
+  animation: scale-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Number counters smooth transition */
+.tabular-nums {
+  transition: color 0.2s ease;
+}
+
+/* Progress bar entrance */
+@keyframes grow-width {
+  from { width: 0 !important; }
+}
+.page-content .rounded-full.transition-all {
+  animation: grow-width 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.4s;
 }

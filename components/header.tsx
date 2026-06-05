@@ -1,15 +1,17 @@
 "use client"
 
+import { useState } from "react"
 import { usePathname } from "next/navigation"
 import { Menu } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Sidebar } from "./sidebar"
+import { MobileSidebar } from "./sidebar"
 import { useProfile } from "@/lib/hooks/use-profile"
 
 const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
   "/": { title: "Dashboard", sub: "Ringkasan performa trading" },
   "/kalkulator": { title: "Kalkulator Trading", sub: "Hitung profit real-time" },
   "/transaksi": { title: "Transaksi", sub: "Catat dan kelola transaksi" },
+  "/wtb": { title: "WTB Template", sub: "Generator pesan WTB gold" },
   "/deposit": { title: "Deposit", sub: "Tracking modal masuk dari investor" },
   "/withdrawal": { title: "Withdrawal", sub: "Catat penarikan dari G2G" },
   "/pengeluaran": { title: "Pengeluaran", sub: "Log semua biaya operasional" },
@@ -40,22 +42,23 @@ export function Header() {
   const { profile } = useProfile()
   const page = PAGE_TITLES[pathname] ?? { title: "LUCI Gold", sub: "" }
   const firstName = profile?.full_name?.split(" ")[0] ?? ""
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
     <header className="flex items-center justify-between py-4 mb-2">
       <div className="flex items-center gap-4">
-        {/* Mobile Menu */}
-        <Sheet>
-          <SheetTrigger className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card/50 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors lg:hidden cursor-pointer">
+        {/* Mobile Menu — only shown when desktop sidebar is hidden */}
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card/50 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors md:hidden cursor-pointer">
             <Menu className="h-5 w-5" />
           </SheetTrigger>
           <SheetContent side="left" className="w-[280px] p-0 bg-card border-border">
-            <Sidebar />
+            <MobileSidebar onClose={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>
 
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-foreground">{page.title}</h1>
+          <h1 className="font-heading text-xl md:text-2xl font-semibold text-foreground">{page.title}</h1>
           <p className="text-sm text-muted-foreground" suppressHydrationWarning>
             {pathname === "/"
               ? `${getGreeting()}${firstName ? `, ${firstName}` : ""} · ${formatDate()}`

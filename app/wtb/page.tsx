@@ -12,7 +12,7 @@ export default function WTBPage() {
         <iframe
           src="/wtb.html"
           className="flex-1 w-full border-0"
-          style={{ height: "calc(100vh - 64px)" }}
+          style={{ minHeight: "calc(100dvh - 80px)" }}
           title="WTB Template Generator"
         />
       </div>

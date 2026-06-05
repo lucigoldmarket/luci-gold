@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
 import { Inter, Cormorant_Garamond } from 'next/font/google'
 import './globals.css'
+import ClickSpark from '@/components/click-spark'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -27,7 +28,16 @@ export default function RootLayout({
   return (
     <html lang="id" className={`${inter.variable} ${cormorant.variable} bg-background`}>
       <body className="font-sans antialiased">
-        {children}
+        <ClickSpark
+          sparkColor="#d4af37"
+          sparkSize={12}
+          sparkRadius={20}
+          sparkCount={8}
+          duration={450}
+          easing="ease-out"
+        >
+          {children}
+        </ClickSpark>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

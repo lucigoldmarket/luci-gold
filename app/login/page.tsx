@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState } from "react"
 import Link from "next/link"
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import DotGrid from "@/components/dot-grid"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -32,15 +33,31 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-sm space-y-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Dot grid background */}
+      <div className="absolute inset-0 z-0 opacity-40">
+        <DotGrid
+          dotSize={5}
+          gap={22}
+          baseColor="#4a3800"
+          activeColor="#d4af37"
+          proximity={100}
+          shockRadius={180}
+          shockStrength={4}
+          resistance={750}
+          returnDuration={1.5}
+        />
+      </div>
+
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-sm space-y-6">
         {/* Logo */}
         <div className="text-center space-y-2">
           <div className="text-4xl font-heading text-gold">⬡ LUCI</div>
           <p className="text-muted-foreground text-sm">Gold Trading Management</p>
         </div>
 
-        <Card className="border-gold/20 bg-card/50 backdrop-blur">
+        <Card className="border-gold/20 bg-card/80 backdrop-blur-md">
           <CardHeader className="pb-4">
             <h1 className="text-xl font-semibold text-center">Masuk</h1>
           </CardHeader>
