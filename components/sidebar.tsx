@@ -20,7 +20,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { createClient } from "@/lib/supabase/client"
-import type { Profile } from "@/lib/types"
+import { useProfile } from "@/lib/hooks/use-profile"
 
 const adminMenuItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/" },
@@ -42,8 +42,8 @@ const investorMenuItems = [
   { title: "Pengaturan", icon: Settings, href: "/pengaturan" },
 ]
 
-const SIDEBAR_EXPANDED = 264   // px offset for content (240px sidebar + 16px left inset + 8px gap)
-const SIDEBAR_COLLAPSED = 88   // px offset for content (72px sidebar + 16px left inset)
+const SIDEBAR_EXPANDED = 264
+const SIDEBAR_COLLAPSED = 88
 
 function setSidebarOffset(px: number) {
   document.documentElement.style.setProperty("--sidebar-offset", `${px}px`)
@@ -52,30 +52,21 @@ function setSidebarOffset(px: number) {
 export function Sidebar() {
   const [locked, setLocked] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const [profile, setProfile] = useState<Profile | null>(null)
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Use shared cached profile — no separate fetch, no flash
+  const { profile, loading: profileLoading } = useProfile()
+
   const isExpanded = locked || hovered
 
-  // Load locked state from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-locked") === "true"
     setLocked(saved)
     setMounted(true)
-
-    async function loadProfile() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-      if (data) setProfile(data as Profile)
-    }
-    loadProfile()
   }, [])
 
-  // Update CSS variable whenever expansion state changes
   useEffect(() => {
     if (!mounted) return
     setSidebarOffset(locked ? SIDEBAR_EXPANDED : SIDEBAR_COLLAPSED)
@@ -103,9 +94,9 @@ export function Sidebar() {
     window.location.href = "/login"
   }
 
-  const menuItems = profile?.role === "admin" ? adminMenuItems : investorMenuItems
+  // Determine menu only when profile is known — never flash wrong menu
+  const menuItems = !profile ? null : profile.role === "admin" ? adminMenuItems : investorMenuItems
 
-  // SSR placeholder — collapsed width
   if (!mounted) {
     return (
       <aside className="hidden md:flex fixed left-4 top-4 bottom-4 z-50 flex-col rounded-2xl border border-border bg-card/80 backdrop-blur-xl w-[72px]" />
@@ -138,33 +129,47 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-3 overflow-hidden">
-        {menuItems.map((item) => {
-          const isActive = pathname === item.href
-          const Icon = item.icon
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={!isExpanded ? item.title : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 whitespace-nowrap",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              )}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              {isExpanded && <span>{item.title}</span>}
-            </Link>
-          )
-        })}
+        {!menuItems ? (
+          // Skeleton — shown only on first ever load before cache warms up
+          <>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className={cn(
+                  "h-10 rounded-xl bg-secondary/40 animate-pulse",
+                  isExpanded ? "w-full" : "w-10 mx-auto"
+                )}
+              />
+            ))}
+          </>
+        ) : (
+          menuItems.map((item) => {
+            const isActive = pathname === item.href
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={!isExpanded ? item.title : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 whitespace-nowrap",
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                )}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                {isExpanded && <span>{item.title}</span>}
+              </Link>
+            )
+          })
+        )}
       </nav>
 
       <Separator className="bg-border" />
 
       {/* User + Lock */}
       <div className="p-3 space-y-1">
-        {/* Lock/Unlock button */}
         <button
           onClick={toggleLock}
           title={locked ? "Lepas kunci sidebar" : "Kunci sidebar tetap terbuka"}
@@ -183,7 +188,6 @@ export function Sidebar() {
           )}
         </button>
 
-        {/* User row */}
         <div className={cn("flex items-center gap-3 rounded-xl px-3 py-2", !isExpanded && "justify-center")}>
           <Avatar className="h-8 w-8 border border-primary/20 shrink-0">
             <AvatarFallback className="bg-primary/10 text-primary text-sm">

@@ -11,19 +11,24 @@ export interface SaldoResult {
   g2gBuyCosts: number
 }
 
-const EFF_COMM_TOTAL = 7.99 * (1 + 11 / 100) / 100 + 1.99 / 100  // 8.87% + 1.99% = 10.86%
-
 export async function computeSaldo(): Promise<SaldoResult> {
   const supabase = createClient()
 
-  const [{ data: deposits }, { data: txData }, { data: wdData }, { data: psConfig }] = await Promise.all([
+  const [{ data: deposits }, { data: txData }, { data: wdData }, { data: psConfig }, { data: feeConfig }] = await Promise.all([
     supabase.from("deposits").select("amount_idr"),
     supabase.from("transactions").select(
       "channel, status, profit_idr, buy_price_idr, gold_amount, sell_price_idr, withdrawal_id"
     ),
     supabase.from("withdrawals").select("amount_received_idr"),
     supabase.from("profit_sharing_config").select("initial_saldo").single(),
+    supabase.from("fee_config").select("commission_pct, vat_pct, withdrawal_fee_pct").eq("is_active", true).single(),
   ])
+
+  const fc = feeConfig as any
+  const vatMult = 1 + (fc?.vat_pct ?? 11) / 100
+  const EFF_COMM_TOTAL =
+    (fc?.commission_pct ?? 7.99) * vatMult / 100 +
+    (fc?.withdrawal_fee_pct ?? 2.48) * vatMult / 100
 
   const initialSaldo = (psConfig as any)?.initial_saldo ?? 0
   const totalDeposits = (deposits ?? []).reduce((s: number, d: any) => s + d.amount_idr, 0)

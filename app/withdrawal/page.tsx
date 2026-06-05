@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect, useMemo } from "react"
 import { Sidebar } from "@/components/sidebar"
@@ -55,8 +55,13 @@ interface ExpenseRow {
   created_at: string
 }
 
-const WITHDRAWAL_FEE_PCT = 1.99
-const WITHDRAWAL_FEE_FIXED = 19999
+interface FeeConfig {
+  commissionPct: number
+  vatPct: number
+  withdrawalFeePct: number
+}
+
+const DEFAULT_FEE: FeeConfig = { commissionPct: 7.99, vatPct: 11, withdrawalFeePct: 2.48 }
 
 // ─── Tab: Catat Withdrawal ────────────────────────────────────────────────────
 
@@ -70,22 +75,26 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
   const [manualAmount, setManualAmount] = useState(0)
   const [useManual, setUseManual] = useState(false)
   const [notes, setNotes] = useState("")
+  const [feeConfig, setFeeConfig] = useState<FeeConfig>(DEFAULT_FEE)
 
   useEffect(() => {
     async function load() {
       const supabase = createClient()
 
-      // Coba dengan filter withdrawal_id (butuh migration)
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("id, transaction_date, gold_amount, sell_price_idr, buy_price_idr, profit_idr, notes, withdrawal_id, status")
-        .eq("channel", "g2g")
-        .in("status", ["pending", "completed"])
-        .is("withdrawal_id", null)
-        .order("transaction_date", { ascending: false })
+      const [txResult, feeResult] = await Promise.all([
+        supabase.from("transactions")
+          .select("id, transaction_date, gold_amount, sell_price_idr, buy_price_idr, profit_idr, notes, withdrawal_id, status")
+          .eq("channel", "g2g")
+          .in("status", ["pending", "completed"])
+          .is("withdrawal_id", null)
+          .order("transaction_date", { ascending: false }),
+        supabase.from("fee_config")
+          .select("commission_pct, vat_pct, withdrawal_fee_pct")
+          .eq("is_active", true)
+          .single(),
+      ])
 
-      if (error) {
-        // Kolom withdrawal_id belum ada — fallback tanpa filter itu
+      if (txResult.error) {
         const { data: fallback } = await supabase
           .from("transactions")
           .select("id, transaction_date, gold_amount, sell_price_idr, buy_price_idr, profit_idr, notes, status")
@@ -94,25 +103,40 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
           .order("transaction_date", { ascending: false })
         setTransactions((fallback as TxRow[]) ?? [])
       } else {
-        setTransactions((data as TxRow[]) ?? [])
+        setTransactions((txResult.data as TxRow[]) ?? [])
       }
+
+      if (feeResult.data) {
+        const fc = feeResult.data as any
+        setFeeConfig({
+          commissionPct: fc.commission_pct ?? 7.99,
+          vatPct: fc.vat_pct ?? 11,
+          withdrawalFeePct: fc.withdrawal_fee_pct ?? 2.48,
+        })
+      }
+
       setLoading(false)
     }
     load()
   }, [])
 
-  const commissionEff = 7.99 * 1.11 / 100
+  // Effective rates (VAT applies to both commission and disbursement fee)
+  const vatMult = 1 + feeConfig.vatPct / 100
+  const effectiveCommFrac = feeConfig.commissionPct * vatMult / 100
+  const effectiveWdPctNum = feeConfig.withdrawalFeePct * vatMult  // e.g. 2.7528 (%)
+  const effectiveWdFrac = effectiveWdPctNum / 100
+
   const selectedTxs = transactions.filter((t) => selected.has(t.id))
 
-  // Estimated G2G balance from selected: gross sell × (1 - commission)
   const estimatedBalance = useMemo(() =>
-    selectedTxs.reduce((s, t) => s + t.sell_price_idr * t.gold_amount * (1 - commissionEff), 0),
-    [selectedTxs]
+    selectedTxs.reduce((s, t) => s + t.sell_price_idr * t.gold_amount * (1 - effectiveCommFrac), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedTxs, effectiveCommFrac]
   )
 
   const withdrawAmount = useManual ? manualAmount : estimatedBalance
-  const feePct = withdrawAmount * WITHDRAWAL_FEE_PCT / 100
-  const netReceived = withdrawAmount - feePct - WITHDRAWAL_FEE_FIXED
+  const totalFee = withdrawAmount * effectiveWdFrac
+  const netReceived = withdrawAmount - totalFee
 
   function toggleAll() {
     if (selected.size === transactions.length) setSelected(new Set())
@@ -130,8 +154,8 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
     const { data: wd, error: wdErr } = await supabase.from("withdrawals").insert({
       withdrawal_date: withdrawDate,
       amount_idr: Math.round(withdrawAmount),
-      withdrawal_fee_pct: WITHDRAWAL_FEE_PCT,
-      withdrawal_fee_fixed_idr: WITHDRAWAL_FEE_FIXED,
+      withdrawal_fee_pct: effectiveWdPctNum,  // store effective % (e.g. 2.7528)
+      withdrawal_fee_fixed_idr: 0,
       amount_received_idr: Math.round(netReceived),
       notes: notes || null,
     }).select("id").single()
@@ -141,25 +165,14 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
     // 2. Link + auto-complete pending transactions
     if (selected.size > 0) {
       const selectedIds = Array.from(selected)
-      // Tandai withdrawal_id
       await supabase.from("transactions")
         .update({ withdrawal_id: wd.id })
         .in("id", selectedIds)
-      // Pending → completed (G2G uang sudah masuk, bisa withdraw)
       await supabase.from("transactions")
         .update({ status: "completed", settled_at: new Date().toISOString() })
         .in("id", selectedIds)
         .eq("status", "pending")
     }
-
-    // 3. Log Rp 19,999 sebagai pengeluaran
-    await supabase.from("operational_expenses").insert({
-      expense_date: withdrawDate,
-      category: "Withdrawal Fee G2G",
-      description: `Fixed fee DOKU Bank Transfer — WD ${formatRupiah(Math.round(withdrawAmount))}`,
-      amount_idr: WITHDRAWAL_FEE_FIXED,
-      expense_type: "non_rutin",
-    })
 
     setSaving(false)
     setSelected(new Set())
@@ -316,12 +329,10 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
                   <span className="text-foreground">{formatRupiah(Math.round(withdrawAmount))}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fee {WITHDRAWAL_FEE_PCT}%</span>
-                  <span className="text-danger">-{formatRupiah(Math.round(feePct))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fixed fee (dicatat pengeluaran)</span>
-                  <span className="text-danger">-{formatRupiah(WITHDRAWAL_FEE_FIXED)}</span>
+                  <span className="text-muted-foreground">
+                    WD fee {feeConfig.withdrawalFeePct}% × PPN {feeConfig.vatPct}% = {effectiveWdPctNum.toFixed(4)}%
+                  </span>
+                  <span className="text-danger">-{formatRupiah(Math.round(totalFee))}</span>
                 </div>
                 <div className="flex justify-between border-t border-border pt-2 font-medium">
                   <span className="text-foreground">Net diterima</span>
@@ -344,11 +355,9 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
               </div>
             )}
 
-            {withdrawAmount > 0 && netReceived > 0 && (
+            {withdrawAmount > 0 && netReceived > 0 && selected.size > 0 && (
               <div className="rounded-lg bg-gold/5 border border-gold/20 p-3 text-xs text-muted-foreground">
-                Saat submit: Rp {WITHDRAWAL_FEE_FIXED.toLocaleString("id-ID")} otomatis dicatat sebagai{" "}
-                <span className="text-foreground">pengeluaran "Withdrawal Fee G2G"</span>
-                {selected.size > 0 && ` · ${selected.size} transaksi ditandai sudah di-withdraw`}
+                {selected.size} transaksi akan ditandai sudah di-withdraw
               </div>
             )}
 
@@ -377,6 +386,8 @@ function RiwayatWithdrawal() {
   const [editNotes, setEditNotes] = useState("")
   const [editAmount, setEditAmount] = useState(0)
   const [editDate, setEditDate] = useState("")
+  const [editFeePct, setEditFeePct] = useState(0)
+  const [editFeeFixed, setEditFeeFixed] = useState(0)
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
@@ -393,18 +404,23 @@ function RiwayatWithdrawal() {
   useEffect(() => { load() }, [])
 
   function startEdit(w: WithdrawalRow) {
-    setEditId(w.id); setEditNotes(w.notes ?? ""); setEditAmount(w.amount_idr); setEditDate(w.withdrawal_date)
+    setEditId(w.id)
+    setEditNotes(w.notes ?? "")
+    setEditAmount(w.amount_idr)
+    setEditDate(w.withdrawal_date)
+    setEditFeePct(w.withdrawal_fee_pct)
+    setEditFeeFixed(w.withdrawal_fee_fixed_idr)
   }
 
   async function saveEdit() {
     if (!editId) return
     setSaving(true)
     const supabase = createClient()
-    const feePct = editAmount * WITHDRAWAL_FEE_PCT / 100
+    const feeAmt = editAmount * editFeePct / 100
     await supabase.from("withdrawals").update({
       withdrawal_date: editDate,
       amount_idr: editAmount,
-      amount_received_idr: Math.round(editAmount - feePct - WITHDRAWAL_FEE_FIXED),
+      amount_received_idr: Math.round(editAmount - feeAmt - editFeeFixed),
       notes: editNotes || null,
     }).eq("id", editId)
     setSaving(false); setEditId(null); load()
@@ -424,7 +440,7 @@ function RiwayatWithdrawal() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
           { label: "Total Withdrawal", value: data.reduce((s, w) => s + w.amount_idr, 0), color: "text-foreground" },
-          { label: "Total Fee + Fixed", value: totalFees, color: "text-danger" },
+          { label: "Total Fee", value: totalFees, color: "text-danger" },
           { label: "Total Net Diterima", value: totalReceived, color: "text-success" },
         ].map((c) => (
           <Card key={c.label} className="bg-card border-border">
@@ -454,42 +470,41 @@ function RiwayatWithdrawal() {
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="text-muted-foreground">Tanggal</TableHead>
                   <TableHead className="text-muted-foreground text-right">Nominal</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Fee %</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Fixed Fee</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Fee</TableHead>
                   <TableHead className="text-muted-foreground text-right">Net Diterima</TableHead>
                   <TableHead className="text-muted-foreground">Catatan</TableHead>
                   <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((w) => (
-                  <TableRow key={w.id} className="border-border hover:bg-background/50">
-                    <TableCell className="text-muted-foreground text-sm">
-                      {new Date(w.withdrawal_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                    </TableCell>
-                    <TableCell className="text-right text-foreground font-medium tabular-nums">{formatRupiah(w.amount_idr)}</TableCell>
-                    <TableCell className="text-right text-danger text-sm tabular-nums">
-                      -{formatRupiah(Math.round(w.amount_idr * w.withdrawal_fee_pct / 100))}
-                    </TableCell>
-                    <TableCell className="text-right text-danger text-sm tabular-nums">
-                      -{formatRupiah(w.withdrawal_fee_fixed_idr)}
-                    </TableCell>
-                    <TableCell className="text-right text-success font-medium tabular-nums">{formatRupiah(w.amount_received_idr)}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{w.notes ?? "—"}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => startEdit(w)}
-                          className="rounded p-1 text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors" title="Edit">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button onClick={() => setDeleteId(w.id)}
-                          className="rounded p-1 text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors" title="Hapus">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {data.map((w) => {
+                  const feeAmt = w.amount_idr * w.withdrawal_fee_pct / 100 + w.withdrawal_fee_fixed_idr
+                  return (
+                    <TableRow key={w.id} className="border-border hover:bg-background/50">
+                      <TableCell className="text-muted-foreground text-sm">
+                        {new Date(w.withdrawal_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                      </TableCell>
+                      <TableCell className="text-right text-foreground font-medium tabular-nums">{formatRupiah(w.amount_idr)}</TableCell>
+                      <TableCell className="text-right text-danger text-sm tabular-nums">
+                        -{formatRupiah(Math.round(feeAmt))}
+                      </TableCell>
+                      <TableCell className="text-right text-success font-medium tabular-nums">{formatRupiah(w.amount_received_idr)}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{w.notes ?? "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => startEdit(w)}
+                            className="rounded p-1 text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors" title="Edit">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => setDeleteId(w.id)}
+                            className="rounded p-1 text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors" title="Hapus">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}
@@ -541,8 +556,6 @@ function RiwayatWithdrawal() {
 
 // ─── Tab: Log Pengeluaran ─────────────────────────────────────────────────────
 
-
-// Log Pengeluaran (read-only di withdrawal page — untuk input ke /pengeluaran)
 function LogPengeluaran() {
   const [expenses, setExpenses] = useState<ExpenseRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -654,7 +667,7 @@ export default function WithdrawalPage() {
             <div className="mb-6">
               <h1 className="font-heading text-3xl font-bold text-foreground mb-1">Withdrawal & Pengeluaran</h1>
               <p className="text-muted-foreground text-sm">
-                Catat penarikan dari G2G · Fee Rp 19.999 otomatis masuk log pengeluaran
+                Catat penarikan dari G2G · Fee disbursement 2.48% + PPN 11%
               </p>
             </div>
 

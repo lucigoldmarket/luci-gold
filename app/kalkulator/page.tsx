@@ -8,25 +8,22 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, CheckCircle, Info, Lock, LockOpen } from "lucide-react"
+import { AlertTriangle, CheckCircle, Lock, LockOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { RequireAdmin } from "@/components/require-admin"
 import {
   calcG2GMinSell,
   calcG2GFromSell,
   calcDirectFromBuy,
   calcDirectFromOffer,
-  calcFixedFeeImpact,
-  calcMinWithdrawalForTarget,
   type G2GFeeParams,
 } from "@/lib/calc"
 
 const DEFAULT_FEE: G2GFeeParams = {
   commissionPct: 7.99,
   vatPct: 11,
-  withdrawalFeePct: 1.99,
-  withdrawalFeeFixed: 19999,
+  withdrawalFeePct: 2.48,
+  withdrawalFeeFixed: 0,
 }
 
 function formatRupiah(n: number) {
@@ -112,8 +109,8 @@ function StatusBadge({ profit, pct }: { profit: number; pct: number }) {
   )
 }
 
-function FeeBreakdown({ eff, wdPct, sellPrice, label = "Harga Jual" }: {
-  eff: number; wdPct: number; sellPrice: number; label?: string
+function FeeBreakdown({ eff, wdPct, sellPrice }: {
+  eff: number; wdPct: number; sellPrice: number
 }) {
   const commAmt = sellPrice * eff / 100
   const wdAmt = sellPrice * wdPct / 100
@@ -122,15 +119,11 @@ function FeeBreakdown({ eff, wdPct, sellPrice, label = "Harga Jual" }: {
     <div className="rounded-lg bg-secondary/40 border border-border p-3 space-y-1.5 text-sm">
       <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-2">Breakdown Fee</p>
       <div className="flex justify-between">
-        <span className="text-muted-foreground">Komisi G2G ({formatPct(7.99)})</span>
-        <span className="text-foreground">—</span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">+ PPN 11% → efektif</span>
+        <span className="text-muted-foreground">Komisi G2G + PPN → efektif</span>
         <span className="text-danger font-medium">-{formatPct(eff)}</span>
       </div>
       <div className="flex justify-between">
-        <span className="text-muted-foreground">Withdrawal DOKU</span>
+        <span className="text-muted-foreground">WD disbursement + PPN → efektif</span>
         <span className="text-danger font-medium">-{formatPct(wdPct)}</span>
       </div>
       <div className="flex justify-between border-t border-border pt-1.5">
@@ -147,107 +140,12 @@ function FeeBreakdown({ eff, wdPct, sellPrice, label = "Harga Jual" }: {
   )
 }
 
-// ─── Fixed Fee Withdrawal Info ────────────────────────────────────────────────
-
-function WithdrawalFeeInfo({ fixedFee }: { fixedFee: number }) {
-  const [planned, setPlanned] = useState(2000000)
-  const [simMargin, setSimMargin] = useState(0.6)
-  const impact = calcFixedFeeImpact(planned, fixedFee)
-  const totalMinMargin = simMargin + impact.impactPct
-  const targets = [2, 1, 0.5, 0.4]
-
-  return (
-    <Card className="bg-card border-border border-gold/20">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm text-foreground flex items-center gap-2">
-          <Info className="h-4 w-4 text-gold" />
-          Berapa % Minimal Margin untuk Menutup Rp 19.999/withdrawal?
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-xs text-muted-foreground">
-          Rp 19.999 dicatat sebagai <span className="text-foreground">pengeluaran saat withdrawal</span>, bukan per transaksi.
-          Simulasikan di sini berapa % margin minimum yang harus kamu kejar.
-        </p>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-muted-foreground text-sm">Target margin profit (%)</Label>
-            <div className="relative">
-              <Input
-                type="number"
-                value={simMargin || ""}
-                onChange={(e) => setSimMargin(Number(e.target.value))}
-                onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                className="bg-background border-border text-foreground pr-8"
-                min={0}
-                step={0.1}
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-muted-foreground text-sm">Estimasi nominal withdrawal (IDR)</Label>
-            <Input
-              type="number"
-              value={planned || ""}
-              onChange={(e) => setPlanned(Number(e.target.value))}
-              onWheel={(e) => (e.target as HTMLInputElement).blur()}
-              className="bg-background border-border text-foreground"
-              min={148000}
-            />
-            <p className="text-xs text-muted-foreground">Min. G2G: Rp 148.000</p>
-          </div>
-        </div>
-
-        {/* Actionable result */}
-        <div className={cn(
-          "rounded-lg p-4 border space-y-3",
-          impact.isEfficent ? "bg-success/10 border-success/30" : impact.impactPct < 2 ? "bg-gold/10 border-gold/30" : "bg-danger/10 border-danger/30"
-        )}>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Coverage Rp 19.999</span>
-            <span className={cn("font-semibold",
-              impact.isEfficent ? "text-success" : impact.impactPct < 2 ? "text-gold" : "text-danger"
-            )}>+{formatPct(impact.impactPct)}</span>
-          </div>
-          <div className="flex items-center justify-between border-t border-border/50 pt-3">
-            <span className="text-sm font-medium text-foreground">
-              Margin minimal total
-              <span className="text-xs text-muted-foreground font-normal ml-1">({formatPct(simMargin)} profit + coverage)</span>
-            </span>
-            <span className="font-bold text-2xl text-gold">{formatPct(totalMinMargin)}</span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Dengan withdrawal {formatRupiah(planned)}, set margin minimal{" "}
-            <span className="text-gold font-semibold">{formatPct(totalMinMargin)}</span> agar profit bersih setelah semua fee + Rp 19.999 tetap positif.
-          </p>
-        </div>
-
-        <div className="rounded-lg bg-secondary/40 border border-border p-3">
-          <p className="text-xs text-muted-foreground font-medium mb-2">Tabel referensi — berapa minimal withdrawal per target coverage:</p>
-          <div className="grid grid-cols-2 gap-2">
-            {targets.map((t) => (
-              <div key={t} className={cn(
-                "flex justify-between text-xs rounded p-1.5",
-                impact.impactPct <= t ? "bg-success/10" : ""
-              )}>
-                <span className="text-muted-foreground">Coverage &lt; {t}%</span>
-                <span className="text-gold font-medium">{formatRupiah(calcMinWithdrawalForTarget(t, fixedFee))}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
 // ─── G2G Calculator ───────────────────────────────────────────────────────────
 
 function G2GCalc({ fee }: { fee: G2GFeeParams }) {
   const eff = fee.commissionPct * (1 + fee.vatPct / 100)
-  const totalCostPct = eff + fee.withdrawalFeePct
+  const effectiveWdPct = fee.withdrawalFeePct * (1 + fee.vatPct / 100)
+  const totalCostPct = eff + effectiveWdPct
 
   // Shared locked margin
   const [margin, setMargin] = useState(0.6)
@@ -329,8 +227,7 @@ function G2GCalc({ fee }: { fee: G2GFeeParams }) {
                   <span className="text-danger font-semibold">{formatPct(totalCostPct)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Komisi {formatPct(fee.commissionPct)} + PPN {fee.vatPct}% = {formatPct(eff)}</span>
-                  <span>+ WD {formatPct(fee.withdrawalFeePct)}</span>
+                  <span>Komisi {formatPct(eff)} + WD {formatPct(effectiveWdPct)}</span>
                 </div>
               </div>
             </div>
@@ -350,7 +247,7 @@ function G2GCalc({ fee }: { fee: G2GFeeParams }) {
                   </div>
                   {breakdown1 && (
                     <>
-                      <FeeBreakdown eff={eff} wdPct={fee.withdrawalFeePct} sellPrice={minSell} />
+                      <FeeBreakdown eff={eff} wdPct={effectiveWdPct} sellPrice={minSell} />
                       <StatusBadge profit={breakdown1.profitPerUnit} pct={breakdown1.profitPct} />
                     </>
                   )}
@@ -376,7 +273,7 @@ function G2GCalc({ fee }: { fee: G2GFeeParams }) {
                   <span className="text-danger font-semibold">{formatPct(totalCostPct)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Komisi {formatPct(eff)} + WD {formatPct(fee.withdrawalFeePct)}</span>
+                  <span>Komisi {formatPct(eff)} + WD {formatPct(effectiveWdPct)}</span>
                 </div>
               </div>
             </div>
@@ -393,7 +290,7 @@ function G2GCalc({ fee }: { fee: G2GFeeParams }) {
                       <p className="text-2xl font-semibold text-gold tabular-nums">{formatRupiah(result2.maxBuyPrice)}</p>
                     </div>
                   </div>
-                  <FeeBreakdown eff={eff} wdPct={fee.withdrawalFeePct} sellPrice={sellPrice2} />
+                  <FeeBreakdown eff={eff} wdPct={effectiveWdPct} sellPrice={sellPrice2} />
                   <div className="rounded-lg bg-secondary/40 border border-border p-3 text-sm space-y-1.5">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Net diterima per unit</span>
@@ -416,7 +313,6 @@ function G2GCalc({ fee }: { fee: G2GFeeParams }) {
         </TabsContent>
       </Tabs>
 
-      <WithdrawalFeeInfo fixedFee={fee.withdrawalFeeFixed} />
     </div>
   )
 }
@@ -601,42 +497,40 @@ export default function KalkulatorPage() {
   }, [])
 
   return (
-    <RequireAdmin>
-      <div className="flex min-h-screen bg-background">
-        <Sidebar />
-        <div className="flex-1 page-content">
-          <Header />
-          <main className="p-4 md:p-6 lg:p-8">
-            <div className="mb-6">
-              <h1 className="font-heading text-3xl font-bold text-foreground mb-1">Kalkulator Trading</h1>
-              <p className="text-muted-foreground text-sm">
-                Rank: <span className="text-gold">Uncommon</span> · Komisi 7.99% + PPN 11% → efektif 8.87% · DOKU 1.99% + Rp 19.999/withdrawal
-              </p>
-            </div>
+    <div className="flex min-h-screen bg-background">
+      <Sidebar />
+      <div className="flex-1 page-content">
+        <Header />
+        <main className="p-4 md:p-6 lg:p-8">
+          <div className="mb-6">
+            <h1 className="font-heading text-3xl font-bold text-foreground mb-1">Kalkulator Trading</h1>
+            <p className="text-muted-foreground text-sm">
+              Rank: <span className="text-gold">Uncommon</span> · Komisi 7.99% + PPN 11% = efektif 8.8689% · WD disbursement 2.48% + PPN 11% = efektif 2.7528%
+            </p>
+          </div>
 
-            <Tabs defaultValue="g2g" className="space-y-6">
-              <TabsList className="bg-card border border-border">
-                <TabsTrigger value="g2g" className="data-[state=active]:bg-red-900/80 data-[state=active]:text-red-100 data-[state=active]:border-red-800">
-                  G2G Platform
-                </TabsTrigger>
-                <TabsTrigger value="direct" className="data-[state=active]:bg-blue-900/80 data-[state=active]:text-blue-100 data-[state=active]:border-blue-800">
-                  Direct Sale
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="g2g">
-                <div className="rounded-xl border border-red-900/30 bg-red-950/10 p-4">
-                  <G2GCalc fee={fee} />
-                </div>
-              </TabsContent>
-              <TabsContent value="direct">
-                <div className="rounded-xl border border-blue-900/30 bg-blue-950/10 p-4">
-                  <DirectCalc />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </main>
-        </div>
+          <Tabs defaultValue="g2g" className="space-y-6">
+            <TabsList className="bg-card border border-border">
+              <TabsTrigger value="g2g" className="data-[state=active]:bg-red-900/80 data-[state=active]:text-red-100 data-[state=active]:border-red-800">
+                G2G Platform
+              </TabsTrigger>
+              <TabsTrigger value="direct" className="data-[state=active]:bg-blue-900/80 data-[state=active]:text-blue-100 data-[state=active]:border-blue-800">
+                Direct Sale
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="g2g">
+              <div className="rounded-xl border border-red-900/30 bg-red-950/10 p-4">
+                <G2GCalc fee={fee} />
+              </div>
+            </TabsContent>
+            <TabsContent value="direct">
+              <div className="rounded-xl border border-blue-900/30 bg-blue-950/10 p-4">
+                <DirectCalc />
+              </div>
+            </TabsContent>
+          </Tabs>
+        </main>
       </div>
-    </RequireAdmin>
+    </div>
   )
 }

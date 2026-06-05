@@ -106,7 +106,7 @@ function FeeTab({ readOnly = false }: { readOnly?: boolean }) {
               onChange={(e) => !readOnly && setFee({ ...fee, withdrawal_fee_fixed: parseFloat(e.target.value) })}
               readOnly={readOnly}
               className={cn("bg-background border-border text-foreground", readOnly && "opacity-70 cursor-default")} />
-            <p className="text-xs text-muted-foreground">DOKU Bank Transfer: Rp 19.999</p>
+            <p className="text-xs text-muted-foreground">Set ke 0 (fee sudah termasuk dalam persentase)</p>
           </div>
         </div>
 

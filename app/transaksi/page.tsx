@@ -26,7 +26,7 @@ function formatRupiah(num: number) {
 }
 
 const DEFAULT_FEE: G2GFeeParams = {
-  commissionPct: 7.99, vatPct: 11, withdrawalFeePct: 1.99, withdrawalFeeFixed: 19999,
+  commissionPct: 7.99, vatPct: 11, withdrawalFeePct: 2.48, withdrawalFeeFixed: 0,
 }
 
 // ─── Transaction Form ─────────────────────────────────────────────────────────

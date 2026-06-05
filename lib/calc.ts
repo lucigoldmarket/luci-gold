@@ -1,8 +1,8 @@
 export interface G2GFeeParams {
-  commissionPct: number   // e.g. 7.99
-  vatPct: number          // e.g. 11
-  withdrawalFeePct: number // e.g. 1.99
-  withdrawalFeeFixed: number // e.g. 19999 — per WITHDRAWAL, not per transaction
+  commissionPct: number    // e.g. 7.99
+  vatPct: number           // e.g. 11 — applies to BOTH commission AND disbursement fee
+  withdrawalFeePct: number // e.g. 2.48 (pre-VAT base rate; VAT applied in deriveCosts)
+  withdrawalFeeFixed: number // 0 — no longer used (kept for backward compat)
 }
 
 export interface G2GCalcResult {
@@ -23,7 +23,7 @@ export function calcG2GMinSell(
   targetMarginPct: number,
   fee: G2GFeeParams
 ): number & { _result?: G2GCalcResult } {
-  const { effectiveCommPct, totalCostPct } = deriveCosts(fee)
+  const { totalCostPct } = deriveCosts(fee)
   const minSell = Math.ceil(buyPrice * (1 + targetMarginPct / 100) / (1 - totalCostPct / 100))
   return minSell
 }
@@ -35,12 +35,12 @@ export function calcG2GFromSell(
   fee: G2GFeeParams,
   buyOverride?: number  // jika diisi, hitung profit vs harga beli aktual
 ): G2GCalcResult & { maxBuyPrice: number; minSellPrice: number } {
-  const { effectiveCommPct, totalCostPct } = deriveCosts(fee)
+  const { effectiveCommPct, effectiveWithdrawalPct, totalCostPct } = deriveCosts(fee)
   const netReceivePerUnit = sellPrice * (1 - totalCostPct / 100)
   const maxBuyPrice = Math.floor(netReceivePerUnit / (1 + targetMarginPct / 100))
   const buyPrice = buyOverride ?? maxBuyPrice
   const commFeePerUnit = sellPrice * effectiveCommPct / 100
-  const withdrawalFeePerUnit = sellPrice * fee.withdrawalFeePct / 100
+  const withdrawalFeePerUnit = sellPrice * effectiveWithdrawalPct / 100
   const profitPerUnit = netReceivePerUnit - buyPrice
   const profitPct = profitPerUnit / sellPrice * 100
 
@@ -57,11 +57,12 @@ export function calcG2GFromSell(
   }
 }
 
-// Helper: derive fee percentages
+// Helper: derive fee percentages — VAT applies to BOTH commission AND disbursement
 function deriveCosts(fee: G2GFeeParams) {
   const effectiveCommPct = fee.commissionPct * (1 + fee.vatPct / 100)
-  const totalCostPct = effectiveCommPct + fee.withdrawalFeePct
-  return { effectiveCommPct, totalCostPct }
+  const effectiveWithdrawalPct = fee.withdrawalFeePct * (1 + fee.vatPct / 100)
+  const totalCostPct = effectiveCommPct + effectiveWithdrawalPct
+  return { effectiveCommPct, effectiveWithdrawalPct, totalCostPct }
 }
 
 // Full breakdown given both buy and sell price
