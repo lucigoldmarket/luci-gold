@@ -55,11 +55,6 @@ export default function PemodalPage() {
       <div className="flex-1 page-content">
         <Header />
         <main className="p-4 md:p-6 lg:p-8">
-          <div className="mb-6">
-            <h1 className="font-heading text-3xl font-bold text-foreground mb-1">Pemodal</h1>
-            <p className="text-muted-foreground text-sm">Daftar investor aktif dan estimasi profit sharing</p>
-          </div>
-
           {/* Summary */}
           <div className="grid gap-4 md:grid-cols-3 mb-6">
             <Card className="bg-card border-border">

@@ -1,9 +1,10 @@
-﻿"use client"
+"use client"
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, TrendingUp, Loader2 } from "lucide-react"
+import { PieChart, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
 function formatRupiah(value: number): string {
@@ -15,36 +16,47 @@ function formatRupiah(value: number): string {
   }).format(value)
 }
 
+const MEMBER_COLORS = [
+  { text: "text-gold", dot: "bg-gold" },
+  { text: "text-blue-400", dot: "bg-blue-400" },
+  { text: "text-violet-400", dot: "bg-violet-400" },
+  { text: "text-success", dot: "bg-success" },
+]
+
+interface Member {
+  full_name: string
+  share_pct: number
+  amount: number
+  color: { text: string; dot: string }
+}
+
 export function InvestorSummary() {
-  const [investorCount, setInvestorCount] = useState(0)
-  const [perInvestor, setPerInvestor] = useState(0)
   const [totalProfit, setTotalProfit] = useState(0)
-  const [totalDeposit, setTotalDeposit] = useState(0)
-  const [opsPct, setOpsPct] = useState(50)
+  const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const [{ data: investors }, { data: txData }, { data: psData }, { data: depositData }] = await Promise.all([
-        supabase.from("profiles").select("id").eq("role", "investor").eq("is_active", true),
+      const [{ data: txData }, { data: memberData }] = await Promise.all([
         supabase.from("transactions").select("profit_idr").eq("status", "completed"),
-        supabase.from("profit_sharing_config").select("ops_percentage").single(),
-        supabase.from("deposits").select("amount_idr"),
+        supabase
+          .from("profit_sharing_members")
+          .select("full_name, share_pct")
+          .eq("is_active", true)
+          .order("created_at"),
       ])
 
-      const count = (investors ?? []).length
       const profit = (txData ?? []).reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
-      const ops = psData?.ops_percentage ?? 50
-      const investorTotal = profit * (1 - ops / 100)
-      const per = count > 0 ? investorTotal / count : 0
-      const dep = (depositData ?? []).reduce((s: number, d: any) => s + d.amount_idr, 0)
+      const parsed: Member[] = (memberData ?? []).map((m: any, i: number) => ({
+        full_name: m.full_name,
+        share_pct: m.share_pct,
+        amount: profit * m.share_pct / 100,
+        color: MEMBER_COLORS[i % MEMBER_COLORS.length],
+      }))
 
-      setInvestorCount(count)
       setTotalProfit(profit)
-      setOpsPct(ops)
-      setPerInvestor(per)
-      setTotalDeposit(dep)
+      setMembers(parsed)
       setLoading(false)
     }
     load()
@@ -56,12 +68,12 @@ export function InvestorSummary() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-              <Users className="h-5 w-5 text-primary" />
+              <PieChart className="h-5 w-5 text-primary" />
             </div>
             <div>
               <CardTitle className="text-lg font-semibold text-foreground">Profit Sharing</CardTitle>
               <p className="text-sm text-muted-foreground">
-                {loading ? "Memuat..." : `${investorCount} investor Â· split rata`}
+                {loading ? "Memuat..." : "Distribusi berdasarkan %"}
               </p>
             </div>
           </div>
@@ -77,47 +89,38 @@ export function InvestorSummary() {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Summary */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-border bg-secondary/30 p-3">
-                <p className="text-xs text-muted-foreground mb-1">Total Profit</p>
-                <p className="text-base font-semibold text-foreground tabular-nums">{formatRupiah(totalProfit)}</p>
-              </div>
-              <div className="rounded-xl border border-border bg-secondary/30 p-3">
-                <p className="text-xs text-muted-foreground mb-1">Per Investor</p>
-                <p className="text-base font-semibold text-success tabular-nums">{formatRupiah(perInvestor)}</p>
-              </div>
+            {/* Total Profit */}
+            <div className="rounded-xl border border-border bg-secondary/30 p-3">
+              <p className="text-xs text-muted-foreground mb-1">Total Profit</p>
+              <p className="text-base font-semibold text-foreground tabular-nums">{formatRupiah(totalProfit)}</p>
             </div>
 
-            {/* Deposit info */}
-            {totalDeposit > 0 && (
-              <div className="rounded-xl border border-border bg-secondary/30 p-3">
-                <p className="text-xs text-muted-foreground mb-1">Total Deposit Investor</p>
-                <p className="text-base font-semibold text-gold tabular-nums">{formatRupiah(totalDeposit)}</p>
-              </div>
-            )}
-
-            {/* Split visual */}
-            <div className="rounded-xl border border-border bg-secondary/30 p-3 space-y-2">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Operator ({opsPct}%)</span>
-                <span>Investor ({100 - opsPct}%)</span>
-              </div>
-              <div className="h-2 rounded-full bg-background overflow-hidden flex">
-                <div className="h-full bg-gold transition-all" style={{ width: `${opsPct}%` }} />
-                <div className="h-full bg-success flex-1" />
-              </div>
-              <div className="flex justify-between text-sm font-medium">
-                <span className="text-gold tabular-nums">{formatRupiah(totalProfit * opsPct / 100)}</span>
-                <span className="text-success tabular-nums">{formatRupiah(totalProfit * (1 - opsPct / 100))}</span>
-              </div>
-            </div>
-
-            {investorCount === 0 && (
-              <p className="text-xs text-muted-foreground text-center">
-                Belum ada investor aktif.{" "}
-                <Link href="/pengaturan" className="text-gold hover:underline">Tambah di Pengaturan</Link>
+            {/* Member list */}
+            {members.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                Belum ada konfigurasi profit sharing.{" "}
+                <Link href="/pengaturan" className="text-gold hover:underline">Atur di Pengaturan</Link>
               </p>
+            ) : (
+              <div className="space-y-2">
+                {members.map((m) => (
+                  <div
+                    key={m.full_name}
+                    className="flex items-center justify-between rounded-xl border border-border bg-secondary/30 px-3 py-2.5"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", m.color.dot)} />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{m.full_name}</p>
+                        <p className="text-xs text-muted-foreground">{m.share_pct}%</p>
+                      </div>
+                    </div>
+                    <span className={cn("font-semibold text-sm tabular-nums", m.color.text)}>
+                      {formatRupiah(m.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -125,4 +128,3 @@ export function InvestorSummary() {
     </Card>
   )
 }
-

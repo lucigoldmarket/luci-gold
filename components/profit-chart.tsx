@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart3, Loader2 } from "lucide-react"
+import { TrendingUp, Loader2 } from "lucide-react"
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
@@ -27,7 +30,7 @@ type Mode = "7d" | "30d" | "bulan"
 
 export function ProfitChart() {
   const [mode, setMode] = useState<Mode>("7d")
-  const [data, setData] = useState<{ label: string; profit: number; g2g: number; direct: number }[]>([])
+  const [data, setData] = useState<{ label: string; g2g: number; direct: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [totalProfit, setTotalProfit] = useState(0)
 
@@ -36,23 +39,19 @@ export function ProfitChart() {
       setLoading(true)
       const supabase = createClient()
       const today = new Date()
-      let from: string
-      let buckets: { key: string; label: string }[] = []
 
       if (mode === "7d") {
         const days: { date: string; label: string }[] = []
         for (let i = 6; i >= 0; i--) {
           const d = new Date(today)
           d.setDate(today.getDate() - i)
-          const key = d.toISOString().slice(0, 10)
-          days.push({ date: key, label: DAY_LABELS[d.getDay()] })
+          days.push({ date: d.toISOString().slice(0, 10), label: DAY_LABELS[d.getDay()] })
         }
-        from = days[0].date
         const { data: txData } = await supabase
           .from("transactions")
           .select("transaction_date, profit_idr, channel")
           .eq("status", "completed")
-          .gte("transaction_date", from)
+          .gte("transaction_date", days[0].date)
           .lte("transaction_date", days[6].date)
 
         const byDate: Record<string, { g2g: number; direct: number }> = {}
@@ -63,10 +62,10 @@ export function ProfitChart() {
         }
         const result = days.map((d) => {
           const b = byDate[d.date] ?? { g2g: 0, direct: 0 }
-          return { label: d.label, profit: b.g2g + b.direct, g2g: b.g2g, direct: b.direct }
+          return { label: d.label, g2g: b.g2g, direct: b.direct }
         })
         setData(result)
-        setTotalProfit(result.reduce((s, d) => s + d.profit, 0))
+        setTotalProfit(result.reduce((s, d) => s + d.g2g + d.direct, 0))
 
       } else if (mode === "30d") {
         const days: { date: string; label: string }[] = []
@@ -77,12 +76,11 @@ export function ProfitChart() {
           const dd = d.getDate()
           days.push({ date: key, label: dd % 7 === 1 ? String(dd) : "" })
         }
-        from = days[0].date
         const { data: txData } = await supabase
           .from("transactions")
           .select("transaction_date, profit_idr, channel")
           .eq("status", "completed")
-          .gte("transaction_date", from)
+          .gte("transaction_date", days[0].date)
 
         const byDate: Record<string, { g2g: number; direct: number }> = {}
         for (const tx of txData ?? []) {
@@ -92,26 +90,23 @@ export function ProfitChart() {
         }
         const result = days.map((d) => {
           const b = byDate[d.date] ?? { g2g: 0, direct: 0 }
-          return { label: d.label, profit: b.g2g + b.direct, g2g: b.g2g, direct: b.direct }
+          return { label: d.label, g2g: b.g2g, direct: b.direct }
         })
         setData(result)
-        setTotalProfit(result.reduce((s, d) => s + d.profit, 0))
+        setTotalProfit(result.reduce((s, d) => s + d.g2g + d.direct, 0))
 
       } else {
-        // bulan — 6 bulan terakhir
         const months: { key: string; label: string }[] = []
         for (let i = 5; i >= 0; i--) {
           const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
           const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
           months.push({ key, label: d.toLocaleDateString("id-ID", { month: "short" }) })
         }
-        from = `${months[0].key}-01`
-
         const { data: txData } = await supabase
           .from("transactions")
           .select("transaction_date, profit_idr, channel")
           .eq("status", "completed")
-          .gte("transaction_date", from)
+          .gte("transaction_date", `${months[0].key}-01`)
 
         const byMonth: Record<string, { g2g: number; direct: number }> = {}
         for (const tx of txData ?? []) {
@@ -122,10 +117,10 @@ export function ProfitChart() {
         }
         const result = months.map((m) => {
           const b = byMonth[m.key] ?? { g2g: 0, direct: 0 }
-          return { label: m.label, profit: b.g2g + b.direct, g2g: b.g2g, direct: b.direct }
+          return { label: m.label, g2g: b.g2g, direct: b.direct }
         })
         setData(result)
-        setTotalProfit(result.reduce((s, d) => s + d.profit, 0))
+        setTotalProfit(result.reduce((s, d) => s + d.g2g + d.direct, 0))
       }
 
       setLoading(false)
@@ -133,8 +128,7 @@ export function ProfitChart() {
     load()
   }, [mode])
 
-  const maxProfit = Math.max(...data.map((d) => d.profit), 1)
-  const hasData = data.some((d) => d.profit > 0)
+  const hasData = data.some((d) => d.g2g > 0 || d.direct > 0)
 
   return (
     <Card className="card-glow border-border bg-card">
@@ -142,7 +136,7 @@ export function ProfitChart() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-              <BarChart3 className="h-5 w-5 text-primary" />
+              <TrendingUp className="h-5 w-5 text-primary" />
             </div>
             <div>
               <CardTitle className="text-lg font-semibold text-foreground">Grafik Profit</CardTitle>
@@ -177,46 +171,87 @@ export function ProfitChart() {
             Belum ada data profit di periode ini
           </div>
         ) : (
-          <div className="flex items-end gap-1 h-[200px] pt-4">
-            {data.map((item, i) => {
-              const isLast = i === data.length - 1
-              const heightPct = (item.profit / maxProfit) * 100
-              return (
-                <div key={i} className="flex flex-1 flex-col items-center gap-1.5 group relative" title={item.profit > 0 ? formatRupiah(item.profit) : undefined}>
-                  <div className="relative w-full flex flex-col items-center">
-                    {item.profit > 0 && (
-                      <span className="text-xs text-muted-foreground mb-1.5 group-hover:text-foreground transition-colors">
-                        {formatCompact(item.profit)}
-                      </span>
-                    )}
-                    {/* Bar: G2G (gold) stacked on Direct (green) */}
-                    <div className="w-full max-w-[36px] flex flex-col-reverse gap-0 overflow-hidden rounded-t-lg"
-                      style={{ height: `${Math.max(heightPct, item.profit > 0 ? 8 : 3)}%`, minHeight: "4px" }}>
-                      {item.g2g > 0 && (
-                        <div className="w-full bg-gradient-to-t from-gold/60 to-gold transition-all"
-                          style={{ flex: item.g2g }} />
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="g2gGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#d4a017" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#d4a017" stopOpacity={0.03} />
+                </linearGradient>
+                <linearGradient id="directGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0.03} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                tickFormatter={formatCompact}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+                width={36}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null
+                  const g2g = (payload.find((p) => p.dataKey === "g2g")?.value as number) ?? 0
+                  const direct = (payload.find((p) => p.dataKey === "direct")?.value as number) ?? 0
+                  const total = g2g + direct
+                  return (
+                    <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-lg space-y-1">
+                      <p className="text-muted-foreground font-medium">{label}</p>
+                      {g2g > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full bg-gold inline-block" />
+                          <span className="text-muted-foreground">G2G</span>
+                          <span className="font-semibold text-gold ml-auto tabular-nums">{formatRupiah(g2g)}</span>
+                        </div>
                       )}
-                      {item.direct > 0 && (
-                        <div className="w-full bg-gradient-to-t from-success/60 to-success transition-all"
-                          style={{ flex: item.direct }} />
+                      {direct > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full bg-success inline-block" />
+                          <span className="text-muted-foreground">Direct</span>
+                          <span className="font-semibold text-success ml-auto tabular-nums">{formatRupiah(direct)}</span>
+                        </div>
                       )}
-                      {item.profit === 0 && (
-                        <div className="w-full bg-border/50" style={{ height: "4px" }} />
+                      {g2g > 0 && direct > 0 && (
+                        <div className="flex justify-between border-t border-border pt-1">
+                          <span className="text-muted-foreground">Total</span>
+                          <span className="font-bold text-foreground tabular-nums">{formatRupiah(total)}</span>
+                        </div>
                       )}
                     </div>
-                  </div>
-                  {item.label && (
-                    <span className={cn(
-                      "text-xs font-medium",
-                      isLast ? "text-gold" : "text-muted-foreground"
-                    )}>
-                      {item.label}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                  )
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="g2g"
+                stackId="a"
+                stroke="#d4a017"
+                strokeWidth={2}
+                fill="url(#g2gGrad)"
+                dot={false}
+                activeDot={{ r: 4, fill: "#d4a017", strokeWidth: 0 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="direct"
+                stackId="a"
+                stroke="#22c55e"
+                strokeWidth={2}
+                fill="url(#directGrad)"
+                dot={false}
+                activeDot={{ r: 4, fill: "#22c55e", strokeWidth: 0 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         )}
 
         {hasData && (

@@ -11,7 +11,10 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Search, ArrowUpRight, ArrowDownLeft, CheckCircle, AlertTriangle, Loader2, Pencil, Trash2 } from "lucide-react"
+import { Plus, Search, ArrowUpRight, ArrowDownLeft, CheckCircle, AlertTriangle, Loader2, Pencil, Trash2, LineChart, ChevronDown } from "lucide-react"
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { type G2GFeeParams } from "@/lib/calc"
@@ -278,6 +281,7 @@ export default function TransaksiPage() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [search, setSearch] = useState("")
   const [fee, setFee] = useState<G2GFeeParams>(DEFAULT_FEE)
+  const [showChart, setShowChart] = useState(false)
 
   async function fetchData() {
     const supabase = createClient()
@@ -299,22 +303,48 @@ export default function TransaksiPage() {
     return true
   }), [transactions, filterChannel, filterStatus, search])
 
+  const chartData = useMemo(() => {
+    const byDate: Record<string, { g2g: number; direct: number }> = {}
+    for (const tx of filtered) {
+      if (tx.status !== "completed" || tx.profit_idr == null) continue
+      if (!byDate[tx.transaction_date]) byDate[tx.transaction_date] = { g2g: 0, direct: 0 }
+      if (tx.channel === "g2g") byDate[tx.transaction_date].g2g += tx.profit_idr
+      else byDate[tx.transaction_date].direct += tx.profit_idr
+    }
+    return Object.entries(byDate)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, v]) => ({
+        label: new Date(date + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+        g2g: v.g2g,
+        direct: v.direct,
+      }))
+  }, [filtered])
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
       <div className="flex-1 page-content">
         <Header />
         <main className="p-4 md:p-6 lg:p-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="font-heading text-3xl font-bold text-foreground mb-1">Transaksi</h1>
-              <p className="text-muted-foreground text-sm">Catat dan kelola semua transaksi trading gold</p>
-            </div>
-            {isAdmin && (
-              <Button onClick={() => { setEditTx(undefined); setShowForm(true) }} className="bg-gold hover:bg-gold/90 text-background">
-                <Plus className="h-4 w-4 mr-2" /> Transaksi Baru
-              </Button>
-            )}
+          <div className="flex items-center justify-end gap-2 mb-4">
+              <button
+                onClick={() => setShowChart((v) => !v)}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                  showChart
+                    ? "bg-gold/10 border-gold/40 text-gold"
+                    : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                )}
+              >
+                <LineChart className="h-4 w-4" />
+                Grafik
+                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showChart && "rotate-180")} />
+              </button>
+              {isAdmin && (
+                <Button onClick={() => { setEditTx(undefined); setShowForm(true) }} className="bg-gold hover:bg-gold/90 text-background">
+                  <Plus className="h-4 w-4 mr-2" /> Transaksi Baru
+                </Button>
+              )}
           </div>
 
           <Card className="bg-card border-border mb-4">
@@ -344,6 +374,105 @@ export default function TransaksiPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Collapsible Chart */}
+          {showChart && (
+            <Card className="bg-card border-border mb-4">
+              <CardContent className="pt-4 pb-4">
+                {chartData.length === 0 ? (
+                  <div className="flex items-center justify-center h-[180px] text-sm text-muted-foreground">
+                    Belum ada data completed di filter ini
+                  </div>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <AreaChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="txG2gGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#d4a017" stopOpacity={0.35} />
+                            <stop offset="95%" stopColor="#d4a017" stopOpacity={0.03} />
+                          </linearGradient>
+                          <linearGradient id="txDirectGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.35} />
+                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0.03} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                          tickLine={false}
+                          axisLine={false}
+                          interval={Math.max(0, Math.floor(chartData.length / 8) - 1)}
+                        />
+                        <YAxis
+                          tickFormatter={(v) => {
+                            const a = Math.abs(v)
+                            if (a >= 1_000_000) return `${(a / 1_000_000).toFixed(1)}jt`
+                            if (a >= 1_000) return `${(a / 1_000).toFixed(0)}rb`
+                            return String(a)
+                          }}
+                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                          tickLine={false}
+                          axisLine={false}
+                          width={36}
+                        />
+                        <Tooltip
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload?.length) return null
+                            const g2g = (payload.find((p) => p.dataKey === "g2g")?.value as number) ?? 0
+                            const direct = (payload.find((p) => p.dataKey === "direct")?.value as number) ?? 0
+                            return (
+                              <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-lg space-y-1">
+                                <p className="text-muted-foreground font-medium">{label}</p>
+                                {g2g > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="h-2 w-2 rounded-full bg-gold inline-block" />
+                                    <span className="text-muted-foreground">G2G</span>
+                                    <span className="font-semibold text-gold ml-auto tabular-nums">
+                                      {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(g2g)}
+                                    </span>
+                                  </div>
+                                )}
+                                {direct > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="h-2 w-2 rounded-full bg-success inline-block" />
+                                    <span className="text-muted-foreground">Direct</span>
+                                    <span className="font-semibold text-success ml-auto tabular-nums">
+                                      {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(direct)}
+                                    </span>
+                                  </div>
+                                )}
+                                {g2g > 0 && direct > 0 && (
+                                  <div className="flex justify-between border-t border-border pt-1">
+                                    <span className="text-muted-foreground">Total</span>
+                                    <span className="font-bold text-foreground tabular-nums">
+                                      {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(g2g + direct)}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          }}
+                        />
+                        <Area type="monotone" dataKey="g2g" stackId="a" stroke="#d4a017" strokeWidth={2} fill="url(#txG2gGrad)" dot={false} activeDot={{ r: 4, fill: "#d4a017", strokeWidth: 0 }} />
+                        <Area type="monotone" dataKey="direct" stackId="a" stroke="#22c55e" strokeWidth={2} fill="url(#txDirectGrad)" dot={false} activeDot={{ r: 4, fill: "#22c55e", strokeWidth: 0 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                    <div className="flex items-center gap-4 mt-2 pt-2 border-t border-border">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <div className="h-2.5 w-2.5 rounded-sm bg-gold" /> G2G
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <div className="h-2.5 w-2.5 rounded-sm bg-success" /> Direct
+                      </div>
+                      <span className="text-xs text-muted-foreground ml-auto">Hanya transaksi completed</span>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="bg-card border-border">
             <CardContent className="p-0">

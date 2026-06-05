@@ -18,6 +18,7 @@ const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
   "/laporan": { title: "Laporan Bagi Hasil", sub: "Rekap profit dan distribusi" },
   "/pemodal": { title: "Pemodal", sub: "Daftar investor aktif" },
   "/pengaturan": { title: "Pengaturan", sub: "Konfigurasi fee dan pengguna" },
+  "/catatan": { title: "Catatan", sub: "Catatan pribadi" },
 }
 
 function getGreeting() {

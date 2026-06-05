@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
+import { WTBCalc } from "@/components/wtb-calc"
 
 export default function WTBPage() {
   return (
@@ -16,6 +17,7 @@ export default function WTBPage() {
           title="WTB Template Generator"
         />
       </div>
+      <WTBCalc />
     </div>
   )
 }

@@ -652,13 +652,6 @@ export default function PengaturanPage() {
       <div className="flex-1 page-content">
         <Header />
         <main className="p-4 md:p-6 lg:p-8">
-          <div className="mb-6">
-            <h1 className="font-heading text-3xl font-bold text-foreground mb-1">Pengaturan</h1>
-            <p className="text-muted-foreground text-sm">
-              {isAdmin ? "Kelola fee, profit sharing, dan pengguna" : "Lihat konfigurasi dan kelola akun kamu"}
-            </p>
-          </div>
-
           <Tabs defaultValue="fee" className="space-y-6">
             <TabsList className="bg-card border border-border flex-wrap h-auto gap-1 p-1">
               <TabsTrigger value="fee" className="data-[state=active]:bg-gold data-[state=active]:text-background">

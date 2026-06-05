@@ -17,6 +17,7 @@ import {
   Pin,
   PinOff,
   Clipboard,
+  StickyNote,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
@@ -32,6 +33,7 @@ const adminMenuItems = [
   { title: "Withdrawal", icon: ArrowDownToLine, href: "/withdrawal" },
   { title: "Pengeluaran", icon: Receipt, href: "/pengeluaran" },
   { title: "Laporan", icon: BarChart3, href: "/laporan" },
+  { title: "Catatan", icon: StickyNote, href: "/catatan" },
   { title: "Pengaturan", icon: Settings, href: "/pengaturan" },
 ]
 
@@ -41,6 +43,7 @@ const investorMenuItems = [
   { title: "Transaksi", icon: FileText, href: "/transaksi" },
   { title: "Pengeluaran", icon: Receipt, href: "/pengeluaran" },
   { title: "Laporan", icon: BarChart3, href: "/laporan" },
+  { title: "Catatan", icon: StickyNote, href: "/catatan" },
   { title: "Pengaturan", icon: Settings, href: "/pengaturan" },
 ]
 
@@ -181,7 +184,7 @@ export function Sidebar() {
         {isExpanded && (
           <div className="flex flex-col overflow-hidden">
             <span className="font-heading text-lg font-semibold text-gold-gradient whitespace-nowrap">LUCI GOLD</span>
-            <span className="text-xs text-muted-foreground whitespace-nowrap">Trading System</span>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Track gold sales</span>
           </div>
         )}
       </div>
@@ -264,7 +267,7 @@ export function MobileSidebar({ onClose }: { onClose?: () => void }) {
         </div>
         <div className="flex flex-col">
           <span className="font-heading text-lg font-semibold text-gold-gradient">LUCI GOLD</span>
-          <span className="text-xs text-muted-foreground">Trading System</span>
+          <span className="text-xs text-muted-foreground">Track gold sales</span>
         </div>
       </div>
 

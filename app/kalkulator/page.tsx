@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, CheckCircle, Lock, LockOpen } from "lucide-react"
+import { AlertTriangle, CheckCircle, Info, Lock, LockOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import {
@@ -17,6 +17,8 @@ import {
   calcG2GBreakdown,
   calcDirectFromBuy,
   calcDirectFromOffer,
+  calcFixedFeeImpact,
+  calcMinWithdrawalForTarget,
   type G2GFeeParams,
 } from "@/lib/calc"
 
@@ -141,6 +143,111 @@ function FeeBreakdown({ eff, wdPct, sellPrice }: {
   )
 }
 
+// ─── Withdrawal Fee Simulation ───────────────────────────────────────────────
+
+function WithdrawalFeeInfo({ fixedFee }: { fixedFee: number }) {
+  const [planned, setPlanned] = useState(2000000)
+  const [simMargin, setSimMargin] = useState(0.6)
+  const impact = calcFixedFeeImpact(planned, fixedFee)
+  const totalMinMargin = simMargin + impact.impactPct
+  const targets = [2, 1, 0.5, 0.4]
+
+  return (
+    <Card className="bg-card border-border border-gold/20">
+      <CardContent className="pt-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <Info className="h-4 w-4 text-gold shrink-0" />
+          <p className="text-sm font-medium text-foreground">
+            Berapa % Minimal Margin untuk Menutup Rp {formatRupiah(fixedFee).replace("Rp ", "")}/withdrawal?
+          </p>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Rp {fixedFee.toLocaleString("id-ID")} dicatat sebagai{" "}
+          <span className="text-foreground">pengeluaran saat withdrawal</span>, bukan per transaksi.
+          Simulasikan di sini berapa % margin minimum yang harus kamu kejar.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-muted-foreground text-sm">Target margin profit (%)</Label>
+            <div className="relative">
+              <Input
+                type="number"
+                value={simMargin || ""}
+                onChange={(e) => setSimMargin(Number(e.target.value))}
+                onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                className="bg-background border-border text-foreground pr-8"
+                min={0}
+                step={0.1}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-muted-foreground text-sm">Estimasi nominal withdrawal (IDR)</Label>
+            <Input
+              type="number"
+              value={planned || ""}
+              onChange={(e) => setPlanned(Number(e.target.value))}
+              onWheel={(e) => (e.target as HTMLInputElement).blur()}
+              className="bg-background border-border text-foreground"
+              min={148000}
+            />
+            <p className="text-xs text-muted-foreground">Min. G2G: Rp 148.000</p>
+          </div>
+        </div>
+
+        <div className={cn(
+          "rounded-lg p-4 border space-y-3",
+          impact.isEfficent
+            ? "bg-success/10 border-success/30"
+            : impact.impactPct < 2
+              ? "bg-gold/10 border-gold/30"
+              : "bg-danger/10 border-danger/30"
+        )}>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Coverage Rp {fixedFee.toLocaleString("id-ID")}</span>
+            <span className={cn("font-semibold",
+              impact.isEfficent ? "text-success" : impact.impactPct < 2 ? "text-gold" : "text-danger"
+            )}>+{formatPct(impact.impactPct)}</span>
+          </div>
+          <div className="flex items-center justify-between border-t border-border/50 pt-3">
+            <span className="text-sm font-medium text-foreground">
+              Margin minimal total{" "}
+              <span className="text-xs text-muted-foreground font-normal">
+                ({formatPct(simMargin)} profit + coverage)
+              </span>
+            </span>
+            <span className="font-bold text-2xl text-gold">{formatPct(totalMinMargin)}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Dengan withdrawal {formatRupiah(planned)}, set margin minimal{" "}
+            <span className="text-gold font-semibold">{formatPct(totalMinMargin)}</span>{" "}
+            agar profit bersih setelah semua fee + Rp {fixedFee.toLocaleString("id-ID")} tetap positif.
+          </p>
+        </div>
+
+        <div className="rounded-lg bg-secondary/40 border border-border p-3">
+          <p className="text-xs text-muted-foreground font-medium mb-2">
+            Tabel referensi — berapa minimal withdrawal per target coverage:
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {targets.map((t) => (
+              <div key={t} className={cn(
+                "flex justify-between text-xs rounded p-1.5",
+                impact.impactPct <= t ? "bg-success/10" : ""
+              )}>
+                <span className="text-muted-foreground">Coverage &lt; {t}%</span>
+                <span className="text-gold font-medium">{formatRupiah(calcMinWithdrawalForTarget(t, fixedFee))}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── G2G Calculator ───────────────────────────────────────────────────────────
 
 function G2GCalc({ fee }: { fee: G2GFeeParams }) {
@@ -154,11 +261,25 @@ function G2GCalc({ fee }: { fee: G2GFeeParams }) {
   const [marginLocked, setMarginLocked] = useState(false)
 
   useEffect(() => {
+    const savedBuy = localStorage.getItem("calc-g2g-buy")
+    const savedSell = localStorage.getItem("calc-g2g-sell")
     const savedMargin = localStorage.getItem("calc-g2g-margin")
     const savedLocked = localStorage.getItem("calc-g2g-margin-locked") === "true"
+    if (savedBuy) setBuyPrice(Number(savedBuy))
+    if (savedSell) setSellPrice(Number(savedSell))
     if (savedMargin) setMargin(Number(savedMargin))
     setMarginLocked(savedLocked)
   }, [])
+
+  function handleBuyChange(v: number) {
+    setBuyPrice(v)
+    localStorage.setItem("calc-g2g-buy", String(v))
+  }
+
+  function handleSellChange(v: number) {
+    setSellPrice(v)
+    localStorage.setItem("calc-g2g-sell", String(v))
+  }
 
   function handleMarginChange(v: number) {
     if (marginLocked) return
@@ -197,8 +318,8 @@ function G2GCalc({ fee }: { fee: G2GFeeParams }) {
     <div className="grid gap-6 lg:grid-cols-2">
       {/* Left: Inputs */}
       <div className="space-y-4">
-        <NumInput label="Harga Beli / unit (IDR)" value={buyPrice} onChange={setBuyPrice} prefix="Rp" hint="Harga dari supplier/Telegram (opsional)" />
-        <NumInput label="Harga Jual di G2G (IDR)" value={sellPrice} onChange={setSellPrice} prefix="Rp" hint="Harga posting kamu atau harga kompetitor (opsional)" />
+        <NumInput label="Harga Beli / unit (IDR)" value={buyPrice} onChange={handleBuyChange} prefix="Rp" hint="Harga dari supplier/Telegram (opsional)" />
+        <NumInput label="Harga Jual di G2G (IDR)" value={sellPrice} onChange={handleSellChange} prefix="Rp" hint="Harga posting kamu atau harga kompetitor (opsional)" />
         <NumInput
           label="Target Margin (%)"
           value={margin}
@@ -307,6 +428,22 @@ function DirectCalc() {
   const [sellPrice, setSellPrice] = useState(0)
   const [margin, setMargin] = useState(0.6)
 
+  useEffect(() => {
+    const f = localStorage.getItem("calc-direct-fee")
+    const b = localStorage.getItem("calc-direct-buy")
+    const s = localStorage.getItem("calc-direct-sell")
+    const m = localStorage.getItem("calc-direct-margin")
+    if (f) setPayFee(Number(f))
+    if (b) setBuyPrice(Number(b))
+    if (s) setSellPrice(Number(s))
+    if (m) setMargin(Number(m))
+  }, [])
+
+  function handleFeeChange(v: number) { setPayFee(v); localStorage.setItem("calc-direct-fee", String(v)) }
+  function handleBuyChange(v: number) { setBuyPrice(v); localStorage.setItem("calc-direct-buy", String(v)) }
+  function handleSellChange(v: number) { setSellPrice(v); localStorage.setItem("calc-direct-sell", String(v)) }
+  function handleMarginChange(v: number) { setMargin(v); localStorage.setItem("calc-direct-margin", String(v)) }
+
   const hasBuy = buyPrice > 0
   const hasSell = sellPrice > 0
 
@@ -337,7 +474,7 @@ function DirectCalc() {
               <NumInput
                 label="Fee Metode Pembayaran (%)"
                 value={payFee}
-                onChange={setPayFee}
+                onChange={handleFeeChange}
                 suffix="%"
                 step={0.1}
                 hint="QRIS, transfer, dll. Isi 0 jika tidak ada fee"
@@ -353,9 +490,9 @@ function DirectCalc() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Left: Inputs */}
         <div className="space-y-4">
-          <NumInput label="Harga Beli / unit (IDR)" value={buyPrice} onChange={setBuyPrice} prefix="Rp" hint="Harga dari farmer (opsional)" />
-          <NumInput label="Harga Jual / Tawar Buyer (IDR)" value={sellPrice} onChange={setSellPrice} prefix="Rp" hint="Harga kamu tawarkan atau penawaran buyer (opsional)" />
-          <NumInput label="Target Margin (%)" value={margin} onChange={setMargin} suffix="%" step={0.1} />
+          <NumInput label="Harga Beli / unit (IDR)" value={buyPrice} onChange={handleBuyChange} prefix="Rp" hint="Harga dari farmer (opsional)" />
+          <NumInput label="Harga Jual / Tawar Buyer (IDR)" value={sellPrice} onChange={handleSellChange} prefix="Rp" hint="Harga kamu tawarkan atau penawaran buyer (opsional)" />
+          <NumInput label="Target Margin (%)" value={margin} onChange={handleMarginChange} suffix="%" step={0.1} />
         </div>
 
         {/* Right: Results */}
@@ -486,13 +623,6 @@ export default function KalkulatorPage() {
       <div className="flex-1 page-content">
         <Header />
         <main className="p-4 md:p-6 lg:p-8">
-          <div className="mb-6">
-            <h1 className="font-heading text-3xl font-bold text-foreground mb-1">Kalkulator Trading</h1>
-            <p className="text-muted-foreground text-sm">
-              Rank: <span className="text-gold">Uncommon</span> · Komisi 7.99% + PPN 11% = efektif 8.8689% · WD disbursement 2.48% + PPN 11% = efektif 2.7528%
-            </p>
-          </div>
-
           <Tabs defaultValue="g2g" className="space-y-6">
             <TabsList className="bg-card border border-border">
               <TabsTrigger value="g2g" className="data-[state=active]:bg-red-900/80 data-[state=active]:text-red-100 data-[state=active]:border-red-800">
@@ -502,10 +632,11 @@ export default function KalkulatorPage() {
                 Direct Sale
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="g2g">
+            <TabsContent value="g2g" className="space-y-4">
               <div className="rounded-xl border border-red-900/30 bg-red-950/10 p-4">
                 <G2GCalc fee={fee} />
               </div>
+              <WithdrawalFeeInfo fixedFee={19999} />
             </TabsContent>
             <TabsContent value="direct">
               <div className="rounded-xl border border-blue-900/30 bg-blue-950/10 p-4">

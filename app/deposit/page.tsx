@@ -109,11 +109,7 @@ export default function DepositPage() {
       <div className="flex-1 page-content">
         <Header />
         <main className="p-4 md:p-6 lg:p-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="font-heading text-3xl font-bold text-foreground mb-1">Deposit</h1>
-              <p className="text-muted-foreground text-sm">Tracking modal masuk dari investor · Membentuk saldo awal</p>
-            </div>
+          <div className="flex justify-end mb-4">
             <Button onClick={() => { setEditItem(undefined); setShowForm(true) }} className="bg-gold hover:bg-gold/90 text-background">
               <Plus className="h-4 w-4 mr-2" /> Catat Deposit
             </Button>

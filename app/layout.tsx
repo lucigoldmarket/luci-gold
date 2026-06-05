@@ -16,8 +16,8 @@ const cormorant = Cormorant_Garamond({
 })
 
 export const metadata: Metadata = {
-  title: 'LUCI GOLD - Gold Trading Management System',
-  description: 'Premium gold trading management system for G2G platform traders',
+  title: 'LUCI GOLD',
+  description: 'Track gold sales — G2G platform trading management',
 }
 
 export default function RootLayout({

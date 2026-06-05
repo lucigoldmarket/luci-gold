@@ -7,7 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { TrendingUp, Wallet, PieChart, Loader2, ArrowUpRight, ArrowDownLeft, Users } from "lucide-react"
+import { TrendingUp, Wallet, PieChart, Loader2, ArrowUpRight, ArrowDownLeft, Users, BarChart2 } from "lucide-react"
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts"
 import { createClient } from "@/lib/supabase/client"
 import type { Transaction, Profile } from "@/lib/types"
 
@@ -151,11 +154,7 @@ export default function LaporanPage() {
       <div className="flex-1 page-content">
         <Header />
         <main className="p-4 md:p-6 lg:p-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="font-heading text-3xl font-bold text-foreground mb-1">Laporan Bagi Hasil</h1>
-              <p className="text-muted-foreground text-sm">Ringkasan profit dan pembagian hasil per anggota</p>
-            </div>
+          <div className="flex justify-end mb-4">
             <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
               <SelectTrigger className="w-52 bg-card border-border text-foreground">
                 <SelectValue />
@@ -266,53 +265,100 @@ export default function LaporanPage() {
                   </CardContent>
                 </Card>
 
-                {/* Bagian per Investor */}
+                {/* Grafik Transaksi Mingguan */}
                 <Card className="bg-card border-border">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base text-foreground">
-                      Bagian per Investor
-                      <span className="text-xs text-muted-foreground font-normal ml-2">
-                        ({investors.length} investor aktif)
-                      </span>
-                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <BarChart2 className="h-4 w-4 text-primary" />
+                      <CardTitle className="text-base text-foreground">Grafik Transaksi Mingguan</CardTitle>
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    {investors.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-4">Belum ada investor aktif.</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {investors.map((inv) => {
-                          const amount = investorAmountMap[inv.full_name] ?? 0
-                          return (
-                            <div key={inv.id} className="flex items-center justify-between rounded-lg border border-border bg-background/50 px-4 py-3">
-                              <div className="flex items-center gap-3">
-                                <div className="h-9 w-9 rounded-full bg-success/10 flex items-center justify-center text-success text-sm font-semibold">
-                                  {inv.full_name.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                  <span className="font-medium text-foreground text-sm">{inv.full_name}</span>
-                                  {investorPoolMember && (
-                                    <p className="text-xs text-muted-foreground">{investorPoolMember.share_pct}% ÷ {investors.length}</p>
-                                  )}
-                                </div>
-                              </div>
-                              <span className="font-bold text-success tabular-nums">{formatRupiah(amount)}</span>
-                            </div>
-                          )
-                        })}
-                        {totalInvestorAmount > 0 && (
-                          <div className="flex items-center justify-between border-t border-border pt-3 mt-1">
-                            <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">Total ke investor</span>
-                            </div>
-                            <span className="font-bold text-success tabular-nums">{formatRupiah(totalInvestorAmount)}</span>
-                          </div>
-                        )}
-                        {totalProfit === 0 && (
-                          <p className="text-xs text-muted-foreground text-center pt-2">Belum ada profit di periode ini</p>
-                        )}
+                    {weeklyData.length === 0 ? (
+                      <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                        Belum ada data transaksi di periode ini
                       </div>
+                    ) : (
+                      <>
+                        <ResponsiveContainer width="100%" height={180}>
+                          <AreaChart
+                            data={weeklyData.map((w) => ({ ...w, label: `Minggu ${w.week}` }))}
+                            margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
+                          >
+                            <defs>
+                              <linearGradient id="wkG2gGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#d4a017" stopOpacity={0.35} />
+                                <stop offset="95%" stopColor="#d4a017" stopOpacity={0.03} />
+                              </linearGradient>
+                              <linearGradient id="wkDirectGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.35} />
+                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0.03} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                            <XAxis
+                              dataKey="label"
+                              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                              tickLine={false}
+                              axisLine={false}
+                            />
+                            <YAxis
+                              tickFormatter={(v) => {
+                                const abs = Math.abs(v)
+                                if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(1)}jt`
+                                if (abs >= 1_000) return `${(abs / 1_000).toFixed(0)}rb`
+                                return String(abs)
+                              }}
+                              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                              tickLine={false}
+                              axisLine={false}
+                              width={36}
+                            />
+                            <Tooltip
+                              content={({ active, payload, label }) => {
+                                if (!active || !payload?.length) return null
+                                const g2g = (payload.find((p) => p.dataKey === "g2g")?.value as number) ?? 0
+                                const direct = (payload.find((p) => p.dataKey === "direct")?.value as number) ?? 0
+                                const count = (payload[0]?.payload as { count: number })?.count ?? 0
+                                return (
+                                  <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-lg space-y-1">
+                                    <p className="text-muted-foreground font-medium">{label}</p>
+                                    <p className="text-muted-foreground">{count} transaksi</p>
+                                    {g2g > 0 && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="h-2 w-2 rounded-full bg-gold inline-block" />
+                                        <span className="text-muted-foreground">G2G</span>
+                                        <span className="font-semibold text-gold ml-auto tabular-nums">{formatRupiah(g2g)}</span>
+                                      </div>
+                                    )}
+                                    {direct > 0 && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="h-2 w-2 rounded-full bg-success inline-block" />
+                                        <span className="text-muted-foreground">Direct</span>
+                                        <span className="font-semibold text-success ml-auto tabular-nums">{formatRupiah(direct)}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between border-t border-border pt-1">
+                                      <span className="text-muted-foreground">Total</span>
+                                      <span className="font-bold text-foreground tabular-nums">{formatRupiah(g2g + direct)}</span>
+                                    </div>
+                                  </div>
+                                )
+                              }}
+                            />
+                            <Area type="monotone" dataKey="g2g" stackId="a" stroke="#d4a017" strokeWidth={2} fill="url(#wkG2gGrad)" dot={false} activeDot={{ r: 4, fill: "#d4a017", strokeWidth: 0 }} />
+                            <Area type="monotone" dataKey="direct" stackId="a" stroke="#22c55e" strokeWidth={2} fill="url(#wkDirectGrad)" dot={false} activeDot={{ r: 4, fill: "#22c55e", strokeWidth: 0 }} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                        <div className="flex items-center gap-4 mt-2 pt-2 border-t border-border">
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <div className="h-2.5 w-2.5 rounded-sm bg-gold" /> G2G
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <div className="h-2.5 w-2.5 rounded-sm bg-success" /> Direct
+                          </div>
+                        </div>
+                      </>
                     )}
                   </CardContent>
                 </Card>
