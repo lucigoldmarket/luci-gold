@@ -16,6 +16,7 @@ import {
   LogOut,
   Pin,
   PinOff,
+  Clipboard,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
@@ -26,6 +27,7 @@ const adminMenuItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/" },
   { title: "Kalkulator G2G", icon: Calculator, href: "/kalkulator" },
   { title: "Transaksi", icon: FileText, href: "/transaksi" },
+  { title: "WTB Template", icon: Clipboard, href: "/wtb" },
   { title: "Deposit", icon: Coins, href: "/deposit" },
   { title: "Withdrawal", icon: ArrowDownToLine, href: "/withdrawal" },
   { title: "Pengeluaran", icon: Receipt, href: "/pengeluaran" },

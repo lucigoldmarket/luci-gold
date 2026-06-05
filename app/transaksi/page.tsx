@@ -282,7 +282,7 @@ export default function TransaksiPage() {
   async function fetchData() {
     const supabase = createClient()
     const [{ data: txData }, { data: feeData }] = await Promise.all([
-      supabase.from("transactions").select("*").order("transaction_date", { ascending: false }),
+      supabase.from("transactions").select("*").order("transaction_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("fee_config").select("*").eq("is_active", true).single(),
     ])
     if (txData) setTransactions(txData as Transaction[])

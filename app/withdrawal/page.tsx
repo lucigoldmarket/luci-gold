@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { CheckCircle, Loader2, AlertTriangle, ArrowDownToLine, Receipt, Pencil, Trash2 } from "lucide-react"
+import { CheckCircle, Loader2, AlertTriangle, ArrowDownToLine, Pencil, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { RequireAdmin } from "@/components/require-admin"
@@ -46,15 +46,6 @@ interface WithdrawalRow {
   created_at: string
 }
 
-interface ExpenseRow {
-  id: string
-  expense_date: string
-  category: string
-  description: string
-  amount_idr: number
-  expense_type: string
-  created_at: string
-}
 
 interface FeeConfig {
   commissionPct: number
@@ -558,104 +549,6 @@ function RiwayatWithdrawal() {
   )
 }
 
-// ─── Tab: Log Pengeluaran ─────────────────────────────────────────────────────
-
-function LogPengeluaran() {
-  const [expenses, setExpenses] = useState<ExpenseRow[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function load() {
-      const supabase = createClient()
-      const { data } = await supabase.from("operational_expenses")
-        .select("*").order("expense_date", { ascending: false })
-      setExpenses((data as ExpenseRow[]) ?? [])
-      setLoading(false)
-    }
-    load()
-  }, [])
-
-  const total = expenses.reduce((s, e) => s + e.amount_idr, 0)
-  const byCategory: Record<string, number> = {}
-  for (const e of expenses) byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount_idr
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">Total pengeluaran tercatat</p>
-          <p className="text-xl font-semibold text-foreground tabular-nums">{formatRupiah(total)}</p>
-        </div>
-      </div>
-
-      {Object.keys(byCategory).length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(byCategory).map(([cat, amt]) => (
-            <Badge key={cat} variant="outline" className="border-border text-muted-foreground text-xs">
-              {cat}: {formatRupiah(amt)}
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      <Card className="bg-card border-border">
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin mr-2" /> Memuat...
-            </div>
-          ) : expenses.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-12">Belum ada log pengeluaran.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-muted-foreground">Tanggal</TableHead>
-                  <TableHead className="text-muted-foreground">Kategori</TableHead>
-                  <TableHead className="text-muted-foreground">Deskripsi</TableHead>
-                  <TableHead className="text-muted-foreground">Tipe</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Nominal</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {expenses.map((e) => (
-                  <TableRow key={e.id} className="border-border hover:bg-background/50">
-                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                      {new Date(e.expense_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn(
-                        "border-0 text-xs",
-                        e.category === "Withdrawal Fee G2G" ? "bg-gold/10 text-gold" :
-                        e.category === "Pokok Bulanan" ? "bg-danger/10 text-danger" :
-                        "bg-secondary text-muted-foreground"
-                      )}>
-                        {e.category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-foreground text-sm">{e.description}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn(
-                        "border-0 text-xs",
-                        e.expense_type === "rutin" ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"
-                      )}>
-                        {e.expense_type === "rutin" ? "Rutin" : "Non-Rutin"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right text-danger font-medium">
-                      -{formatRupiah(e.amount_idr)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function WithdrawalPage() {
@@ -683,9 +576,6 @@ export default function WithdrawalPage() {
                 <TabsTrigger value="riwayat" className="data-[state=active]:bg-gold data-[state=active]:text-background">
                   Riwayat
                 </TabsTrigger>
-                <TabsTrigger value="pengeluaran" className="data-[state=active]:bg-gold data-[state=active]:text-background">
-                  <Receipt className="h-4 w-4 mr-2" /> Log Pengeluaran
-                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="catat" className="mt-6">
@@ -693,9 +583,6 @@ export default function WithdrawalPage() {
               </TabsContent>
               <TabsContent value="riwayat" className="mt-6">
                 <RiwayatWithdrawal key={refreshKey} />
-              </TabsContent>
-              <TabsContent value="pengeluaran" className="mt-6">
-                <LogPengeluaran key={refreshKey} />
               </TabsContent>
             </Tabs>
           </main>

@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WTB Gold Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#17212b;--sidebar:#232e3c;--card:#242f3d;--card2:#2b3a4d;
+    --border:#2f3e50;--blue:#2ea6ff;--blue2:#1a8fe0;
+    --green:#4cd964;--red:#ff5c5c;--text:#e8edf2;
+    --muted:#7b9ab4;--inp:#1c2a38;--inp-b:#3a5068;--bubble:#2b5278;
+    --r:10px;--font:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+  /* TOPBAR */
+  .topbar{background:var(--sidebar);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+  .logo-wrap{position:relative;flex-shrink:0}
+  .logo-box{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--blue),#1a5fa8);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:default;user-select:none;transition:box-shadow .2s}
+  .logo-box.editable{cursor:pointer;box-shadow:0 0 0 2px var(--blue)}
+  .logo-edit-hint{display:none;position:absolute;top:46px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:11px;color:var(--muted);white-space:nowrap;z-index:20;pointer-events:none}
+  .logo-box.editable:hover + .logo-edit-hint{display:block}
+  .tinfo{flex:1;min-width:0}
+  .tname{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tsub{font-size:10px;color:var(--muted);margin-top:1px}
+  .edit-mode-btn{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .2s;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0;min-height:36px;touch-action:manipulation}
+  .edit-mode-btn:hover,.edit-mode-btn:active{border-color:var(--blue);color:var(--blue)}
+  .edit-mode-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
+
+  /* MAIN */
+  .main{display:flex;flex:1;max-width:1400px;margin:0 auto;width:100%;padding:12px;gap:12px;align-items:flex-start}
+  .pleft{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0}
+  .pright{width:440px;flex-shrink:0;position:sticky;top:68px;max-height:calc(100vh - 80px);overflow-y:auto;padding-right:2px}
+  .pseller{width:360px;flex-shrink:0;position:sticky;top:68px;max-height:calc(100vh - 80px);overflow-y:auto;padding-right:2px}
+
+  /* INPUTS — bigger touch targets on mobile */
+  select,input[type=text],input[type=number],textarea{background:var(--inp);border:1px solid var(--inp-b);color:var(--text);border-radius:5px;padding:4px 8px;font-family:var(--font);font-size:13px;outline:none;transition:border-color .2s;-webkit-appearance:none}
+  select:focus,input:focus,textarea:focus{border-color:var(--blue)}
+  select{cursor:pointer;padding-right:20px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M1 1l3.5 3L8 1' stroke='%237b9ab4' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;height:34px}
+  input[type=text],input[type=number]{height:34px}
+
+  /* BUTTONS */
+  .btn{border:none;border-radius:8px;padding:7px 12px;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:4px;touch-action:manipulation;min-height:36px}
+  .bb{background:var(--blue);color:#fff}.bb:hover,.bb:active{background:var(--blue2)}
+  .bg{background:transparent;color:var(--muted);border:1px solid var(--border)}.bg:hover,.bg:active{background:var(--card2);color:var(--text)}
+  .bgrn{background:transparent;color:var(--green);border:1px solid var(--green)}.bgrn:hover,.bgrn:active{background:rgba(76,217,100,.1)}
+  .bdel{background:none;border:none;color:var(--muted);cursor:pointer;padding:6px 8px;border-radius:6px;font-size:15px;line-height:1;transition:color .15s,background .15s;flex-shrink:0;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+  .bdel:hover,.bdel:active{color:var(--red);background:rgba(255,92,92,.12)}
+
+  /* GAME BLOCK */
+  .gblock{background:var(--card);border-radius:var(--r);border:1px solid var(--border);overflow:visible}
+  .ghead{background:var(--sidebar);padding:8px 10px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);border-radius:var(--r) var(--r) 0 0;flex-wrap:wrap}
+  .gbody{padding:8px 8px;display:flex;flex-direction:column;gap:6px}
+
+  /* EMOJI BUTTONS */
+  .emj-btn{font-size:18px;cursor:pointer;background:none;border:1px solid var(--border);border-radius:7px;padding:4px 7px;transition:background .15s,border-color .15s;line-height:1.2;flex-shrink:0;display:inline-flex;align-items:center;gap:3px;min-height:36px;touch-action:manipulation}
+  .emj-btn:hover,.emj-btn:active{background:var(--card2);border-color:var(--blue)}
+  .emj-btn .emj-label{font-size:9px;color:var(--muted);font-family:var(--font);font-weight:600;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+  .emj-btn.row-emj{font-size:16px;padding:4px 6px;border-radius:5px}
+
+  /* GAME EMOJI GROUP in header */
+  .emj-group{display:flex;align-items:center;gap:4px;background:var(--card2);border-radius:8px;padding:3px 6px;border:1px solid var(--border)}
+  .emj-divider{width:1px;height:16px;background:var(--border);flex-shrink:0}
+  .emj-group-label{font-size:9px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+
+  .gtitle{background:transparent;border:none;color:var(--text);font-size:14px;font-weight:600;flex:1;outline:none;font-family:var(--font);min-width:60px;height:34px}
+  .gtitle::placeholder{color:var(--muted)}
+
+  /* SERVER ROW */
+  .srow{display:flex;align-items:center;gap:4px;background:var(--card2);border-radius:8px;padding:6px 8px;flex-wrap:nowrap}
+  .sel-reg{width:52px;flex-shrink:0}.sel-srv{flex:1;min-width:70px}.sel-fac{width:44px;flex-shrink:0}
+  .inp-g{width:66px;flex-shrink:0}.inp-r{width:56px;flex-shrink:0}.sel-method{width:90px;flex-shrink:0}
+  .sep{color:var(--muted);font-size:11px;user-select:none;flex-shrink:0}
+  .add-strip{padding:6px 8px 10px;display:flex;gap:7px}
+
+  /* OUTPUT */
+  .ocard{background:var(--card);border-radius:var(--r);border:1px solid var(--border);overflow:hidden}
+  .ohead{background:var(--sidebar);padding:10px 12px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+  .rbtn{background:none;border:none;color:var(--blue);font-size:18px;cursor:pointer;padding:4px;border-radius:4px;line-height:1;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+  .bwrap{padding:12px}
+  .bubble{background:var(--bubble);border-radius:12px 12px 12px 3px;padding:11px 14px;font-size:13px;line-height:1.75;white-space:pre-wrap;word-break:break-word;color:var(--text);font-family:'Courier New',monospace;min-height:50px}
+  .btime{font-size:10px;color:var(--muted);text-align:right;margin-top:4px}
+  .cwrap{padding:0 12px 12px}
+  .cpybtn{width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:12px;font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:flex;align-items:center;justify-content:center;gap:6px;touch-action:manipulation}
+  .cpybtn:hover,.cpybtn:active{background:var(--blue2)}.cpybtn.copied{background:#27ae60}
+
+  /* EMOJI POPUP */
+  .epop{display:none;position:fixed;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px;z-index:700;box-shadow:0 8px 32px rgba(0,0,0,.6);flex-wrap:wrap;gap:3px;width:232px}
+  .epop.open{display:flex}
+  .eopt{font-size:20px;cursor:pointer;padding:6px 7px;border-radius:6px;transition:background .12s;line-height:1;touch-action:manipulation}
+  .eopt:hover,.eopt:active{background:var(--card2)}
+  .epop-title{width:100%;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;padding:0 2px 5px;border-bottom:1px solid var(--border);margin-bottom:3px}
+
+  /* LOGO EMOJI POPUP */
+  .logo-epop{display:none;position:fixed;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px;z-index:700;box-shadow:0 8px 32px rgba(0,0,0,.6);flex-wrap:wrap;gap:3px;width:232px}
+  .logo-epop.open{display:flex}
+
+  /* MODAL */
+  .movl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:flex-end;justify-content:center}
+  .movl.open{display:flex}
+  .modal{background:var(--card);border-radius:16px 16px 0 0;border:1px solid var(--border);width:100%;max-width:560px;max-height:92vh;overflow-y:auto;animation:slideup .22s ease}
+  @keyframes slideup{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+  @keyframes fi{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+  .mhead{background:var(--sidebar);padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:15px;position:sticky;top:0;z-index:10}
+  .mbody{padding:12px;display:flex;flex-direction:column;gap:5px}
+  .mfoot{padding:12px;border-top:1px solid var(--border);display:flex;gap:7px;justify-content:flex-end}
+  .srvrow{display:flex;align-items:center;gap:8px;background:var(--card2);border-radius:8px;padding:10px 12px;font-size:14px}
+  .srvrow span{flex:1}
+  .reg-lbl{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-top:10px;margin-bottom:4px}
+  .addsrv{display:flex;gap:7px;align-items:center;margin-top:6px}
+  .addsrv input{flex:1;height:36px}.addsrv select{width:74px;height:36px}
+  .bulk-area{background:var(--inp);border:1px solid var(--inp-b);border-radius:7px;padding:10px 12px;color:var(--text);font-family:'Courier New',monospace;font-size:13px;resize:vertical;min-height:80px;width:100%;outline:none;transition:border-color .2s}
+  .bulk-area:focus{border-color:var(--blue)}
+
+  /* PASSWORD MODAL */
+  .pw-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:400;align-items:center;justify-content:center}
+  .pw-modal.open{display:flex}
+  .pw-box{background:var(--card);border-radius:16px;border:1px solid var(--border);width:340px;max-width:92vw;padding:28px 24px;animation:fi .18s ease;display:flex;flex-direction:column;gap:16px;align-items:center}
+  .pw-box h3{font-size:16px;font-weight:700;color:var(--text)}
+  .pw-box p{font-size:13px;color:var(--muted);text-align:center;line-height:1.5}
+  .pw-input{width:100%;background:var(--inp);border:1px solid var(--inp-b);color:var(--text);border-radius:8px;padding:12px 16px;font-size:16px;font-family:var(--font);outline:none;text-align:center;letter-spacing:3px;transition:border-color .2s}
+  .pw-input:focus{border-color:var(--blue)}
+  .pw-input.wrong{border-color:var(--red);animation:shake .3s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .pw-err{font-size:13px;color:var(--red);font-weight:600;min-height:18px}
+  .pw-actions{display:flex;gap:8px;width:100%}
+  .pw-actions .btn{flex:1;justify-content:center;padding:10px}
+  .lock-icon{font-size:36px;line-height:1}
+
+  /* LOGO INPUT in edit mode */
+  .logo-input-wrap{display:none;position:absolute;top:48px;left:0;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;z-index:20;width:190px;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+  .logo-input-wrap.open{display:block}
+  .logo-input-wrap input{width:100%;font-size:14px;height:34px;border-radius:6px;margin-bottom:8px}
+  .logo-preview{display:flex;justify-content:center;font-size:30px;margin-bottom:6px}
+  .logo-hint{font-size:10px;color:var(--muted);text-align:center}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px);background:#27ae60;color:#fff;padding:10px 22px;border-radius:30px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:999;white-space:nowrap}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* GLOBAL DESCRIPTION */
+  .desc-global-wrap{background:var(--card);border-radius:var(--r);border:1px solid var(--border);padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+  .desc-global-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .desc-global-area{width:100%;background:var(--inp);border:1px solid var(--inp-b);color:var(--text);border-radius:7px;padding:10px 12px;font-family:var(--font);font-size:13px;outline:none;resize:vertical;min-height:70px;transition:border-color .2s;line-height:1.5}
+  .desc-global-area:focus{border-color:var(--blue)}
+
+  /* CUSTOM ALERT / CONFIRM */
+  .cx-ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;align-items:center;justify-content:center}
+  .cx-ovl.open{display:flex}
+  .cx-box{background:var(--card);border-radius:14px;border:1px solid var(--border);width:320px;max-width:92vw;padding:24px 20px 18px;animation:fi .18s ease;display:flex;flex-direction:column;gap:14px}
+  .cx-icon{font-size:30px;line-height:1;text-align:center}
+  .cx-msg{font-size:14px;color:var(--text);text-align:center;line-height:1.6}
+  .cx-actions{display:flex;gap:8px;justify-content:center;margin-top:4px}
+  .cx-actions .btn{min-width:90px;justify-content:center;padding:9px 16px}
+  /* GAME PICKER MODAL */
+  .gpick-ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:center;justify-content:center}
+  .gpick-ovl.open{display:flex}
+  .gpick-box{background:var(--card);border-radius:16px;border:1px solid var(--border);width:420px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;animation:fi .18s ease;overflow:hidden}
+  .gpick-head{background:var(--sidebar);padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:15px;flex-shrink:0}
+  .gpick-search{padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+  .gpick-search input{width:100%;height:34px;background:var(--inp);border:1px solid var(--inp-b);color:var(--text);border-radius:7px;padding:4px 12px;font-family:var(--font);font-size:13px;outline:none}
+  .gpick-search input:focus{border-color:var(--blue)}
+  .gpick-list{overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;flex:1}
+  .gpick-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;cursor:pointer;border:1px solid transparent;transition:all .15s;user-select:none}
+  .gpick-item:hover{background:var(--card2);border-color:var(--border)}
+  .gpick-item.active{background:rgba(46,166,255,.1);border-color:var(--blue)}
+  .gpick-item .gpick-emj{font-size:20px;flex-shrink:0;width:28px;text-align:center}
+  .gpick-item .gpick-name{font-size:13px;font-weight:600;flex:1}
+  .gpick-item .gpick-check{font-size:16px;color:var(--blue);opacity:0}
+  .gpick-item.active .gpick-check{opacity:1}
+  .gpick-foot{padding:12px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
+  .gpick-custom{padding:4px 8px;border-top:1px solid var(--border);flex-shrink:0}
+  .gpick-custom-btn{width:100%;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:8px;padding:8px;font-family:var(--font);font-size:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:5px}
+  .gpick-custom-btn:hover{border-color:var(--blue);color:var(--blue)}
+
+  ::-webkit-scrollbar{width:4px;height:4px}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+  /* SELLER MESSAGE GENERATOR */
+  .seller-wrap{background:var(--card);border-radius:var(--r);border:1px solid var(--border);overflow:hidden}
+  .seller-head{background:var(--sidebar);padding:10px 12px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+  .seller-body{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+  .seller-field{display:flex;flex-direction:column;gap:3px}
+  .seller-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .seller-input{width:100%;background:var(--inp);border:1px solid var(--inp-b);color:var(--text);border-radius:6px;padding:6px 10px;font-family:var(--font);font-size:13px;outline:none;transition:border-color .2s;height:34px}
+  .seller-input:focus{border-color:var(--blue)}
+  .seller-row2{display:flex;gap:7px}
+  .seller-row2 .seller-field{flex:1}
+  .method-tabs{display:flex;gap:4px;flex-wrap:wrap}
+  .method-tab{background:var(--card2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .15s;white-space:nowrap}
+  .method-tab:hover{border-color:var(--blue);color:var(--blue)}
+  .method-tab.active{background:var(--blue);border-color:var(--blue);color:#fff}
+  .seller-desc{font-size:11px;color:var(--muted);background:var(--card2);border-radius:6px;padding:8px 10px;line-height:1.6;white-space:pre-wrap;border-left:2px solid var(--blue)}
+  .seller-preview{background:var(--bubble);border-radius:12px 12px 12px 3px;padding:11px 14px;font-size:12.5px;line-height:1.75;white-space:pre-wrap;word-break:break-word;color:var(--text);font-family:'Courier New',monospace;min-height:40px}
+  .seller-divider{height:1px;background:var(--border);margin:2px 0}
+
+  /* ── MOBILE RESPONSIVE ─────────────────────────────────────── */
+  @media(max-width:760px){
+    .main{flex-direction:column;padding:8px}
+    .pright{width:100%;position:static}
+    .pseller{width:100%;position:static}
+
+    /* Topbar */
+    .tname{font-size:13px}
+    .tsub{display:none}
+
+    /* Game header */
+    .ghead{gap:5px;row-gap:5px}
+    .gtitle{font-size:13px;min-width:0}
+
+    /* Keep inputs compact — no zoom trigger (>=16px font stops iOS zoom) */
+    select,input[type=text],input[type=number]{height:32px;font-size:16px;padding:2px 6px}
+    select{height:32px;padding-right:18px}
+
+    /* ── SERVER ROW: 2-line layout ─────────────────────────────
+       Line 1: [emoji] [region] [server──────] [faction] [✕]
+       Line 2:         [gold──────] [@] [rate──] [method──]
+    ──────────────────────────────────────────────────────────── */
+    .srow{
+      display:grid;
+      grid-template-columns:32px 52px 1fr 46px 32px;
+      grid-template-rows:auto auto;
+      gap:4px 4px;
+      padding:6px 6px;
+    }
+    /* Row 1 items — each take 1 column */
+    .srow .emj-btn.row-emj{grid-column:1;grid-row:1;padding:2px 3px;font-size:15px;min-height:32px;width:32px;justify-content:center}
+    .srow .sel-reg{grid-column:2;grid-row:1;width:100%}
+    .srow .sel-srv{grid-column:3;grid-row:1;width:100%;min-width:0}
+    .srow .sel-fac{grid-column:4;grid-row:1;width:100%}
+    .srow .bdel{grid-column:5;grid-row:1;min-width:32px;min-height:32px;padding:2px 4px;font-size:14px}
+
+    /* Row 2: hide the · separators, spread gold, rate, method across full width */
+    .srow .sep{display:none}
+    .srow .inp-g{grid-column:2/3;grid-row:2;width:100%}
+    .srow .inp-r{grid-column:3/4;grid-row:2;width:100%}
+    .srow .sel-method{grid-column:4/6;grid-row:2;width:100%}
+
+    /* Preview output bubble — scrollable */
+    .bubble{font-size:12.5px;max-height:240px;overflow-y:auto}
+
+    /* Copy button */
+    .cpybtn{padding:13px;font-size:14px}
+
+    /* Modal bottom sheet */
+    .movl{align-items:flex-end}
+    .modal{border-radius:20px 20px 0 0;max-height:90vh}
+
+    /* Emoji popup fixed to bottom */
+    .epop{width:calc(100vw - 24px);left:12px !important;top:auto !important;bottom:72px;position:fixed}
+
+    /* Modal internals */
+    .bulk-area{min-height:90px}
+    .addsrv{flex-wrap:wrap}
+    .addsrv input{min-width:0}
+
+    /* Buttons */
+    .btn{min-height:36px;font-size:13px}
+    .bdel{min-width:32px;min-height:32px}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <!-- LOGO -->
+  <div class="logo-wrap" id="logoWrap">
+    <div class="logo-box" id="logoBox" onclick="logoClick()">🪙</div>
+    <div class="logo-edit-hint">Klik untuk ganti logo</div>
+    <!-- Logo picker panel -->
+    <div class="logo-input-wrap" id="logoPicker">
+      <div class="logo-preview" id="logoPreview">🪙</div>
+      <div class="logo-hint" style="margin-bottom:6px">Ketik emoji atau pilih:</div>
+      <input type="text" id="logoInput" maxlength="4" placeholder="🪙" oninput="logoInputChange(this.value)" style="text-align:center;font-size:18px;letter-spacing:2px" />
+      <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px;" id="logoQuickEmoji"></div>
+    </div>
+  </div>
+
+  <div class="tinfo">
+    <div class="tname" id="topbarName">WTB Gold Generator</div>
+    <div class="tsub">World of Warcraft · <span id="saveStatus" style="transition:opacity .5s;opacity:0;font-size:10px;font-weight:600">✓ Tersimpan</span></div>
+  </div>
+  <button class="edit-mode-btn" id="editModeBtn" onclick="toggleEditMode()">🔒 Mode Edit</button>
+</div>
+
+<div class="main">
+  <div class="pleft">
+    <div id="gameSections"></div>
+    <button class="btn bb" onclick="openGamePicker()" style="align-self:flex-start;padding:8px 16px">＋ Tambah Versi Game</button>
+    <!-- DESKRIPSI GLOBAL -->
+    <div class="desc-global-wrap" id="descGlobalWrap">
+      <div class="desc-global-label">📝 Deskripsi (tampil di bawah semua header WTB)</div>
+      <textarea id="globalDesc" class="desc-global-area" placeholder="Tulis deskripsi, catatan, atau info tambahan di sini..." oninput="updateGlobalDesc(this.value)"></textarea>
+    </div>
+  </div>
+  <div class="pright">
+    <div class="ocard">
+      <div class="ohead">💬 Preview Output <button class="rbtn" onclick="refreshOutput()">↻</button></div>
+      <div class="bwrap">
+        <div class="bubble" id="outputBubble">Output muncul di sini...</div>
+        <div class="btime" id="outputTime"></div>
+      </div>
+      <div class="cwrap">
+        <button class="cpybtn" id="copyBtn" onclick="copyOutput()">📋 Copy ke Clipboard</button>
+      </div>
+    </div>
+
+    <!-- RATE CARD — per-row copy cards -->
+    <div id="rateCardWrap" style="margin-top:10px;display:none">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:6px 2px 6px">💰 Copy Cards</div>
+      <div id="rateCardCards" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+
+  </div>
+
+  <!-- SELLER PANEL — kolom kanan tersendiri -->
+  <div class="pseller">
+    <div class="seller-wrap">
+      <div class="seller-head">📨 Pesan ke Seller <span style="font-size:10px;color:var(--blue);text-transform:none;letter-spacing:0;font-weight:400">isi → copy → kirim</span></div>
+      <div class="seller-body">
+        <div class="seller-field">
+          <div class="seller-label">👤 Nick Buyer (In-Game)</div>
+          <input type="text" class="seller-input" id="sellerNick" placeholder="Tulis nick buyer..." oninput="buildSellerMsg()" />
+        </div>
+        <div class="seller-row2">
+          <div class="seller-field">
+            <div class="seller-label">🪙 Jumlah Gold</div>
+            <input type="number" class="seller-input" id="sellerGold" placeholder="1000" min="0" oninput="buildSellerMsg()" />
+          </div>
+          <div class="seller-field">
+            <div class="seller-label">💵 Rate (per 1g)</div>
+            <input type="number" class="seller-input" id="sellerRate" placeholder="180" min="0" oninput="buildSellerMsg()" />
+          </div>
+        </div>
+        <div class="seller-row2">
+          <div class="seller-field" style="flex:2">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+              <div class="seller-label" style="margin-bottom:0">🖥️ Server</div>
+              <button id="sellerFilterToggle" onclick="toggleSellerFilter()" title="Filter versi game"
+                style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:1px 7px;font-size:10px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .15s;line-height:1.6">
+                🎮 Filter ▾
+              </button>
+            </div>
+            <div id="sellerVersionFilterWrap" style="display:none;margin-bottom:5px;background:var(--card2);border-radius:7px;padding:6px 7px;border:1px solid var(--border)">
+              <div style="display:flex;gap:3px;flex-wrap:wrap" id="sellerVersionFilter"></div>
+            </div>
+            <div style="display:flex;gap:4px">
+              <select class="seller-input" id="sellerServerDropdown" onchange="onSellerServerDropdown(this.value)" style="flex:1;min-width:0"></select>
+              <button onclick="toggleSellerManual()" id="sellerManualBtn" title="Ketik manual"
+                style="background:var(--card2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:0 9px;cursor:pointer;font-size:13px;flex-shrink:0;height:34px;transition:all .15s">✏️</button>
+            </div>
+            <input type="text" class="seller-input" id="sellerServerManual" placeholder="Ketik nama server..." oninput="onSellerServerManual(this.value)" style="display:none;margin-top:4px;width:100%" />
+            <input type="hidden" id="sellerServer" />
+          </div>
+          <div class="seller-field">
+            <div class="seller-label">⚔️ Faksi</div>
+            <select class="seller-input" id="sellerFaction" onchange="buildSellerMsg()">
+              <option value="Horde">Horde</option>
+              <option value="Alliance">Alliance</option>
+            </select>
+          </div>
+        </div>
+        <div class="seller-field">
+          <div class="seller-label">📦 Metode Pengiriman</div>
+          <div class="method-tabs" id="methodTabs">
+            <button class="method-tab active" onclick="setSellerMethod('Mail',this)">📬 Mail</button>
+            <button class="method-tab" onclick="setSellerMethod('F2F',this)">🤝 F2F</button>
+            <button class="method-tab" onclick="setSellerMethod('Guild Bank',this)">🏦 Guild Bank</button>
+            <button class="method-tab" onclick="setSellerMethod('AH',this)">🏪 AH</button>
+          </div>
+        </div>
+        <div class="seller-field">
+          <div class="seller-label" style="display:flex;align-items:center;justify-content:space-between">
+            <span>📝 Ketentuan Metode</span>
+            <span style="font-size:10px;color:var(--blue);cursor:pointer;user-select:none" onclick="toggleSellerDescEdit()">✏️ Edit</span>
+          </div>
+          <div class="seller-desc" id="sellerDescPreview"></div>
+          <textarea class="seller-input" id="sellerDescEdit" style="display:none;height:110px;resize:vertical;padding:8px 10px;line-height:1.5" oninput="saveSellerDesc();buildSellerMsg()"></textarea>
+        </div>
+        <div class="seller-divider"></div>
+        <div class="seller-field">
+          <div class="seller-label" style="display:flex;align-items:center;justify-content:space-between">
+            <span>💬 Preview Pesan</span>
+            <span style="font-size:10px;color:var(--blue);font-weight:400;letter-spacing:0;text-transform:none">👆 klik nickname untuk copy</span>
+          </div>
+          <div class="seller-preview" id="sellerPreview">Isi form di atas untuk melihat preview pesan...</div>
+          <div class="btime" id="sellerTime"></div>
+        </div>
+        <button class="cpybtn" id="sellerCopyBtn" onclick="copySellerMsg()" style="margin-top:2px">📋 Copy Pesan ke Seller</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- SERVER MODAL -->
+<div class="movl" id="srvModal">
+  <div class="modal">
+    <div class="mhead">⚙️ Server — <span id="mTitle" style="color:var(--blue)"></span>
+      <button class="bdel" onclick="closeModal()" style="font-size:17px">✕</button>
+    </div>
+    <div class="mbody" id="mBody"></div>
+    <div style="padding:0 12px 6px">
+      <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;margin-top:6px">📋 Import Massal</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">1 nama server per baris. Pilih region → Import.</div>
+      <div style="display:flex;gap:7px;align-items:flex-start">
+        <textarea class="bulk-area" id="bulkText" placeholder="Whitemane&#10;Nightslayer&#10;Faerlina&#10;..."></textarea>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <select id="bulkRegion" style="height:28px;width:68px"><option>US</option><option>EU</option><option>SEA</option><option>OCE</option><option>KR</option><option>CN</option></select>
+          <button class="btn bb" onclick="bulkImport()" style="padding:5px 8px;font-size:11px">Import</button>
+        </div>
+      </div>
+    </div>
+    <div style="padding:0 12px 10px;border-top:1px solid var(--border);padding-top:10px">
+      <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Tambah Satu</div>
+      <div class="addsrv">
+        <select id="newReg"><option>US</option><option>EU</option><option>SEA</option><option>OCE</option><option>KR</option><option>CN</option></select>
+        <input type="text" id="newSrv" placeholder="Nama server..." />
+        <button class="btn bb" onclick="addSrv()" style="padding:4px 10px">＋</button>
+      </div>
+    </div>
+    <div class="mfoot"><button class="btn bg" onclick="closeModal()">Tutup</button></div>
+  </div>
+</div>
+
+<!-- PASSWORD MODAL -->
+<div class="pw-modal" id="pwModal">
+  <div class="pw-box">
+    <div class="lock-icon">🔐</div>
+    <h3>Mode Edit</h3>
+    <p>Masukkan password untuk mengaktifkan mode edit dan mengubah logo aplikasi.</p>
+    <input class="pw-input" id="pwInput" type="password" placeholder="••••••" maxlength="20"
+      onkeydown="if(event.key==='Enter')checkPw()" />
+    <div class="pw-err" id="pwErr"></div>
+    <div class="pw-actions">
+      <button class="btn bg" onclick="closePwModal()">Batal</button>
+      <button class="btn bb" onclick="checkPw()">🔓 Masuk</button>
+    </div>
+  </div>
+</div>
+
+<!-- EMOJI POPUP -->
+<div class="epop" id="epop">
+  <div class="epop-title" id="epopTitle">Pilih Emoji</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+
+<!-- CUSTOM ALERT MODAL -->
+<div class="cx-ovl" id="cxAlert">
+  <div class="cx-box">
+    <div class="cx-icon" id="cxAlertIcon">⚠️</div>
+    <div class="cx-msg" id="cxAlertMsg"></div>
+    <div class="cx-actions">
+      <button class="btn bb" onclick="cxAlertClose()" id="cxAlertOkBtn">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOM CONFIRM MODAL -->
+<div class="cx-ovl" id="cxConfirm">
+  <div class="cx-box">
+    <div class="cx-icon" id="cxConfirmIcon">🗑️</div>
+    <div class="cx-msg" id="cxConfirmMsg"></div>
+    <div class="cx-actions">
+      <button class="btn bg" onclick="cxConfirmCancel()">Batal</button>
+      <button class="btn" id="cxConfirmOkBtn" onclick="cxConfirmOk()" style="background:var(--red);color:#fff">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME PICKER MODAL -->
+<div class="gpick-ovl" id="gpickModal">
+  <div class="gpick-box">
+    <div class="gpick-head">
+      🎮 Tambah Versi Game
+      <button class="bdel" onclick="closeGamePicker()" style="font-size:17px">✕</button>
+    </div>
+    <div class="gpick-search">
+      <input type="text" id="gpickSearch" placeholder="🔍 Cari game..." oninput="filterGamePicker(this.value)" />
+    </div>
+    <div class="gpick-list" id="gpickList"></div>
+    <div class="gpick-custom">
+      <button class="gpick-custom-btn" onclick="addCustomGame()">＋ Tambah game baru (custom)</button>
+    </div>
+    <div class="gpick-foot">
+      <button class="btn bg" onclick="closeGamePicker()">Batal</button>
+      <button class="btn bb" onclick="confirmGamePicker()">＋ Tambah yang Dipilih</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+const EMOJIS = ['⚔️','🛡️','🏹','🪄','🔮','💀','🐉','🦁','🦅','🌟','⭐','🌙','☀️','🔥','❄️','⚡','💎','🪙','💰','🎯','🗡️','🏰','🌍','🎮','👑','💪','🧙','🧝','🐺','🦊','🦄','🍀','🌿','🌊','🌋','🎲','🤝','📜','🗺️','🏆','🎖️','🚩','🔱','⚜️','✨','🙏','💫','🌈','🎪','🦋','🐝','🍺','🗿','🫡','🧊','🌀','🎭','🎨','🏴','⚗️','🌺','🧿','🪬','🫧','🐊','🦖','🧬','🏺','🪤','🎰','🎴'];
+const LOGO_EMOJIS = ['🪙','💰','⚔️','🛡️','🐉','🏆','👑','🎮','🌟','💎','🔱','⚜️','🧙','🦁','🏰','🗡️'];
+const PASSWORD = 'agusgantengsekali'; // ← ganti password di sini
+const LS_KEY = 'wtbgold_v3';
+
+
+// ─── CUSTOM ALERT / CONFIRM ───────────────────────────────────────────────────
+let _cxConfirmResolve = null;
+
+function showAlert(msg, icon='⚠️') {
+  document.getElementById('cxAlertIcon').textContent = icon;
+  document.getElementById('cxAlertMsg').textContent = msg;
+  document.getElementById('cxAlert').classList.add('open');
+  setTimeout(()=>document.getElementById('cxAlertOkBtn').focus(), 50);
+}
+function cxAlertClose() {
+  document.getElementById('cxAlert').classList.remove('open');
+}
+
+function showConfirm(msg, icon='🗑️') {
+  return new Promise(resolve => {
+    _cxConfirmResolve = resolve;
+    document.getElementById('cxConfirmIcon').textContent = icon;
+    document.getElementById('cxConfirmMsg').textContent = msg;
+    document.getElementById('cxConfirm').classList.add('open');
+    setTimeout(()=>document.getElementById('cxConfirmOkBtn').focus(), 50);
+  });
+}
+function cxConfirmOk() {
+  document.getElementById('cxConfirm').classList.remove('open');
+  if(_cxConfirmResolve) { _cxConfirmResolve(true); _cxConfirmResolve=null; }
+}
+function cxConfirmCancel() {
+  document.getElementById('cxConfirm').classList.remove('open');
+  if(_cxConfirmResolve) { _cxConfirmResolve(false); _cxConfirmResolve=null; }
+}
+
+// ─── SUPABASE ─────────────────────────────────────────────────────────────────
+// ← Ganti dengan URL dan anon key Supabase project Anda
+const SUPABASE_URL = 'https://bcoeemrwseeoxqmzoqcl.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjb2VlbXJ3c2Vlb3hxbXpvcWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNzIyMzEsImV4cCI6MjA5NTY0ODIzMX0.6T8gFrmVXQbP8he3td3Z5Egbmv3SroBCZfqpZKgkOTo';
+const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Nama tabel di Supabase: wtbgold_config
+// Kolom: id (int8, primary key), versi_game (text), data (jsonb)
+// Row tunggal dengan id=1 menyimpan seluruh config
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let games = [];
+let globalDesc = '';
+let modalGid = null;
+let epopTarget = null; // {gid, field} field: 'gameEmoji' | 'bulkEmoji' | 'rowEmoji_N'
+let editMode = false;
+let logoOpen = false;
+
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+// Supabase → konfigurasi (servers, emoji, judul game, logo, globalDesc, versi_game)
+// localStorage → form rows (gold, rate, region, faction) — data sesi user
+//
+// Struktur tabel Supabase (buat sekali):
+//   CREATE TABLE wtbgold_config (
+//     id        bigint PRIMARY KEY DEFAULT 1,
+//     versi_game text NOT NULL DEFAULT 'default',
+//     data      jsonb NOT NULL DEFAULT '{}'::jsonb,
+//     updated_at timestamptz DEFAULT now()
+//   );
+//   INSERT INTO wtbgold_config(id, versi_game, data) VALUES (1, 'default', '{}');
+//   -- Aktifkan Row Level Security lalu tambah policy:
+//   ALTER TABLE wtbgold_config ENABLE ROW LEVEL SECURITY;
+//   CREATE POLICY "allow_all" ON wtbgold_config FOR ALL USING (true) WITH CHECK (true);
+
+const LS_ROWS_KEY    = 'wtbgold_rows_v2';
+const LS_CONFIG_KEY  = 'wtbgold_config_v2'; // cache config dari Supabase
+const SB_TABLE       = 'wtbgold_config';
+const SB_ROW_ID      = 1;
+let sbSaveTimeout    = null;
+
+// Ambil hanya data config dari games (tanpa rows)
+function getConfigSnapshot() {
+  return {
+    logo: document.getElementById('logoBox').textContent,
+    globalDesc,
+    games: games.map(g => ({
+      id: g.id,
+      title: g.title,
+      emoji: g.emoji,
+      serverEmoji: g.serverEmoji || g.emoji,
+      servers: g.servers
+    }))
+  };
+}
+
+// Ambil versi_game saat ini (gabungan title semua game aktif, dipisah koma)
+function getCurrentVersiGame() {
+  return games.map(g => g.title).join(', ') || 'default';
+}
+
+// Ambil hanya rows dari games
+function getRowsSnapshot() {
+  return games.map(g => ({ id: g.id, rows: g.rows }));
+}
+
+// Simpan config ke Supabase (debounced) + cache lokal
+// Field versi_game diisi otomatis dari daftar game yang aktif
+function saveConfig() {
+  // Simpan ke cache lokal dulu — instan
+  try { localStorage.setItem(LS_CONFIG_KEY, JSON.stringify(getConfigSnapshot())); } catch(e) {}
+  // Kirim ke Supabase di background (debounced)
+  clearTimeout(sbSaveTimeout);
+  sbSaveTimeout = setTimeout(async () => {
+    try {
+      const payload = {
+        id: SB_ROW_ID,
+        versi_game: getCurrentVersiGame(),
+        data: getConfigSnapshot(),
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await sbClient
+        .from(SB_TABLE)
+        .upsert(payload, { onConflict: 'id' });
+      if(error) throw error;
+      showSaveStatus('✓ Tersimpan');
+    } catch(e) {
+      console.error('Supabase save error:', e);
+      showSaveStatus('⚠ Gagal sync Supabase', true);
+    }
+  }, 800);
+}
+
+// Simpan rows ke localStorage (langsung, tanpa debounce)
+function saveRows() {
+  try {
+    localStorage.setItem(LS_ROWS_KEY, JSON.stringify(getRowsSnapshot()));
+  } catch(e) {}
+}
+
+// save() dipanggil dari seluruh kode lama — otomatis pilih tujuan
+// Emoji/server/judul → Supabase | Rows (gold,rate,dll) → localStorage
+function save(type) {
+  if(!type || type === 'config') saveConfig();
+  if(!type || type === 'rows') saveRows();
+}
+
+// Bangun games dari object config
+function applyConfig(p) {
+  globalDesc = p.globalDesc || '';
+  if(p.logo) setLogoDisplay(p.logo);
+  games = (p.games || []).map(gc => ({
+    id: gc.id,
+    title: gc.title,
+    emoji: gc.emoji || '🎮',
+    serverEmoji: gc.serverEmoji || gc.emoji || '🎮',
+    servers: gc.servers || {US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]},
+    rows: []
+  }));
+  // Load seller_descs dari Supabase jika ada
+  if (p.seller_descs) {
+    _sellerDescsCache = p.seller_descs;
+    try { localStorage.setItem(SELLER_LS_KEY, JSON.stringify(p.seller_descs)); } catch(e) {}
+  }
+}
+
+// Merge rows dari localStorage ke games
+function mergeRows() {
+  try {
+    const raw = localStorage.getItem(LS_ROWS_KEY);
+    if(!raw) return;
+    JSON.parse(raw).forEach(sr => {
+      const g = games.find(g => g.id === sr.id);
+      if(g) g.rows = sr.rows || [];
+    });
+  } catch(e) {}
+}
+
+// STEP 1 — Load cache lokal (instan, sinkron)
+function loadCache() {
+  try {
+    const raw = localStorage.getItem(LS_CONFIG_KEY);
+    if(raw) { applyConfig(JSON.parse(raw)); return true; }
+  } catch(e) {}
+  return false;
+}
+
+// STEP 2 — Sync Supabase di background, update jika ada perubahan
+async function syncFirebase() { // nama fungsi dipertahankan agar tidak perlu ubah pemanggil
+  try {
+    const { data: rows, error } = await sbClient
+      .from(SB_TABLE)
+      .select('data, versi_game, updated_at')
+      .eq('id', SB_ROW_ID)
+      .maybeSingle();
+    if(error) throw error;
+    if(!rows || !rows.data || !rows.data.games) return;
+    const p = rows.data;
+    // Cek apakah config Supabase berbeda dengan cache
+    const cached = localStorage.getItem(LS_CONFIG_KEY);
+    const sbJson = JSON.stringify({logo:p.logo,globalDesc:p.globalDesc,games:p.games});
+    if(cached) {
+      const c = JSON.parse(cached);
+      const cacheJson = JSON.stringify({logo:c.logo,globalDesc:c.globalDesc,games:c.games});
+      if(sbJson === cacheJson) return; // tidak ada perubahan, skip re-render
+    }
+    // Ada update dari Supabase — terapkan
+    applyConfig(p);
+    mergeRows();
+    try { localStorage.setItem(LS_CONFIG_KEY, JSON.stringify(getConfigSnapshot())); } catch(e) {}
+    render(); refreshOutput();
+    document.getElementById('globalDesc').value = globalDesc||'';
+    // Refresh tampilan ketentuan seller jika ada update dari Supabase
+    const descNow = getSellerDesc(sellerMethod || 'Mail');
+    const prevEl = document.getElementById('sellerDescPreview');
+    const editEl = document.getElementById('sellerDescEdit');
+    if (prevEl) prevEl.textContent = descNow;
+    if (editEl) editEl.value = descNow;
+    showSaveStatus('↻ Config diperbarui');
+  } catch(e) {
+    console.error('Supabase sync error:', e);
+  }
+}
+
+function showSaveStatus(msg, isError=false) {
+  const el = document.getElementById('saveStatus');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--red)' : 'var(--green)';
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.style.opacity='0'; }, 2000);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.onload = function() {
+  buildEpop();
+  buildLogoQuickEmoji();
+
+  // STEP 1: Load dari cache lokal — instan, tidak ada delay
+  const hasCached = loadCache();
+  if(hasCached) {
+    mergeRows();
+  } else {
+    // Tidak ada cache sama sekali — load default tanpa trigger save()
+    const addGameSilent = (title,emoji,rows,servers) => {
+      const id=genId();
+      const srv=servers||{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]};
+      games.push({id,title,emoji,serverEmoji:emoji,desc:'',rows:rows||[],servers:srv});
+    };
+    // WOW — Anniversary
+    addGameSilent("Anniv WoW","⚔️",[],{
+      US:['Maladath','Dreamscythe','Doomhowl','Nightslayer','Soulseeker','Spineshatter','Thunderstrike'],
+      EU:['Maladath','Dreamscythe','Doomhowl','Nightslayer','Soulseeker','Spineshatter','Thunderstrike'],
+      SEA:[],OCE:[],KR:[],CN:[]
+    });
+    // WOW — Season of Discovery
+    addGameSilent("SOD WoW","🌿",[],{
+      US:['Crusader Strike','Living Flame','Wild Growth'],
+      EU:['Crusader Strike','Living Flame','Wild Growth'],
+      SEA:[],OCE:[],KR:[],CN:[]
+    });
+    // WOW — Era Classic
+    addGameSilent("ERA Classic","🏛️",[],{
+      US:['Mankrik','Whitemane'],
+      EU:['Mankrik','Whitemane'],
+      SEA:[],OCE:[],KR:[],CN:[]
+    });
+    // WOW — Hardcore
+    addGameSilent("HC Hardcore WoW","💀",[],{
+      US:['Skull Rock','Defias Pillager'],
+      EU:['Skull Rock','Defias Pillager'],
+      SEA:[],OCE:[],KR:[],CN:[]
+    });
+    // WOW — Mists of Pandaria (MOP)
+    addGameSilent("MOP WoW","🐉",[],{
+      US:['Angerforge','Arugal','Ashkandi','Atiesh','Azuresong','Benediction','Bloodsail Buccaneers','Earthfury','Eranikus','Faerlina','Grobbulus','Maladath','Mankrik','Myzrael','Old Blanchy','Pagle','Remulos','Skyfury','Sulfuras','Westfall','Whitemane','Windseeker','Yojamba','Lei Shen','Galakras','Immerseus','Nazgrim','Ra-den'],
+      EU:['Angerforge','Arugal','Ashkandi','Atiesh','Azuresong','Benediction','Bloodsail Buccaneers','Earthfury','Eranikus','Faerlina','Grobbulus','Maladath','Mankrik','Myzrael','Old Blanchy','Pagle','Remulos','Skyfury','Sulfuras','Westfall','Whitemane','Windseeker','Yojamba','Lei Shen','Galakras','Immerseus','Nazgrim','Ra-den'],
+      SEA:[],OCE:[],KR:[],CN:[]
+    });
+    // WOW — Midnight
+    addGameSilent("Midnight WoW","🌙",[],{
+      US:['Area 52','Bleeding Hollow','Dalaran','Emerald Dream','Illidan',"Mal'Ganis",'Proudmoore','Sargeras','Stormrage','Thrall','Tichondrius',"Zul'jin",'ALL SERVER'],
+      EU:['Barthilas','Frostmourne'],
+      SEA:[],OCE:[],KR:[],CN:[]
+    });
+    // WOW — Private Server
+    addGameSilent("WOW Private Server","🖥️",[],{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]});
+    // New World
+    addGameSilent("New World","🌍",[],{
+      US:['Hudsonland','Pangea','Aries','Bifrost','Delos','El Dorado','Valhalla','Devaloka','Nysa'],
+      EU:[],SEA:[],OCE:[],KR:[],CN:[]
+    });
+    // Lost Ark
+    addGameSilent("Lost Ark","⚓",[],{
+      US:['Inanna','Luterra','Balthorr','Ninevah','Brelshaza','Thaemine','Ratik','Arcturus','Ortuus','Gienah','Elpon','Vairgrys','US East','US West'],
+      EU:['EUC'],SEA:[],OCE:[],KR:[],CN:[]
+    });
+    // Throne & Liberty
+    addGameSilent("Throne & Liberty","👑",[],{
+      US:['West Early','West Full','East Early','East Full'],
+      EU:['EU Central','Europe Early','Europe Full'],
+      SEA:['AP Northeast','South Early','South Full','Japan Oceania Early','Japan Oceania Full'],
+      OCE:[],KR:[],CN:[]
+    });
+    // ODIN
+    addGameSilent("ODIN","🪬",[],{
+      US:[],
+      EU:[],
+      SEA:['Asgard 01','Asgard 02','Asgard 03','Asgard 04','Asgard 05','Asgard 06','Asgard 07','Asgard 08','Asgard 09','Alfheim 01','Alfheim 02','Alfheim 03','Alfheim 04','Alfheim 05','Alfheim 06','Alfheim 07','Alfheim 08','Alfheim 09','Vanaheim 01','Vanaheim 02','Vanaheim 03','Vanaheim 04','Vanaheim 05','Vanaheim 06','Vanaheim 07','Vanaheim 08','Vanaheim 09'],
+      OCE:[],KR:[],CN:[]
+    });
+    // Dragon Nest
+    addGameSilent("Dragon Nest","🐲",[],{
+      US:[],EU:[],SEA:['Velskud','Gerraint'],OCE:[],KR:[],CN:[]
+    });
+    // DUNE
+    addGameSilent("DUNE","🏜️",[],{
+      US:['Pallas','Phobos','Red Maw','Richese','Scorpius','Sculptor','Serpens','Solaria','Stoneheart','Volans','Vowbreaker','Wormsight'],
+      EU:[],SEA:[],OCE:[],KR:[],CN:[]
+    });
+    // Other Games
+    addGameSilent("Roblox","🎮",[],{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]});
+    addGameSilent("BNS","⚔️",[],{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]});
+    addGameSilent("WARBORNE","🛡️",[],{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]});
+    addGameSilent("Undecember","🔮",[],{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]});
+    addGameSilent("Where Winds Meet","🌬️",[],{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]});
+    addGameSilent("AION 2","✨",[],{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]});
+    addGameSilent("AOC","🏰",[],{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]});
+    addGameSilent("The Quinfall","🌺",[],{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]});
+    // Simpan default ke cache agar next load langsung dari localStorage
+    try { localStorage.setItem(LS_CONFIG_KEY, JSON.stringify(getConfigSnapshot())); } catch(e) {}
+    saveRows();
+  }
+  render(); refreshOutput();
+  document.getElementById('globalDesc').value = globalDesc||'';
+
+  // STEP 2: Sync Firebase di background — tidak blokir UI
+  syncFirebase();
+
+  document.addEventListener('click', function(e) {
+    if(!e.target.closest('.emj-btn') && !e.target.closest('#epop'))
+      { document.getElementById('epop').classList.remove('open'); epopTarget=null; }
+    if(!e.target.closest('#logoWrap'))
+      { closeLogo(); }
+  });
+};
+
+function genId(){ return '_'+Math.random().toString(36).substr(2,9); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// ─── EDIT MODE & PASSWORD ─────────────────────────────────────────────────────
+function toggleEditMode() {
+  if(editMode) {
+    editMode = false;
+    applyEditMode();
+  } else {
+    document.getElementById('pwModal').classList.add('open');
+    document.getElementById('pwInput').value='';
+    document.getElementById('pwErr').textContent='';
+    setTimeout(()=>document.getElementById('pwInput').focus(),100);
+  }
+}
+
+function checkPw() {
+  const val = document.getElementById('pwInput').value;
+  if(val === PASSWORD) {
+    closePwModal();
+    editMode = true;
+    applyEditMode();
+    showToast('Mode Edit aktif 🔓');
+  } else {
+    const inp = document.getElementById('pwInput');
+    const err = document.getElementById('pwErr');
+    inp.classList.add('wrong');
+    err.textContent = 'Password salah!';
+    setTimeout(()=>inp.classList.remove('wrong'),400);
+  }
+}
+
+function closePwModal() {
+  document.getElementById('pwModal').classList.remove('open');
+}
+
+function applyEditMode() {
+  const btn = document.getElementById('editModeBtn');
+  const logo = document.getElementById('logoBox');
+  if(editMode) {
+    btn.classList.add('active');
+    btn.textContent = '🔓 Edit Aktif';
+    logo.classList.add('editable');
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = '🔒 Mode Edit';
+    logo.classList.remove('editable');
+    closeLogo();
+  }
+}
+
+// ─── LOGO ─────────────────────────────────────────────────────────────────────
+function logoClick() {
+  if(!editMode) return;
+  logoOpen = !logoOpen;
+  const picker = document.getElementById('logoPicker');
+  if(logoOpen) {
+    picker.classList.add('open');
+    document.getElementById('logoInput').value = '';
+    document.getElementById('logoInput').focus();
+  } else {
+    picker.classList.remove('open');
+  }
+}
+
+function closeLogo() {
+  logoOpen = false;
+  document.getElementById('logoPicker').classList.remove('open');
+}
+
+function setLogoDisplay(val) {
+  document.getElementById('logoBox').textContent = val;
+  document.getElementById('logoPreview').textContent = val;
+}
+
+function logoInputChange(val) {
+  if(val.trim()) { setLogoDisplay(val.trim()); save('config'); }
+}
+
+function buildLogoQuickEmoji() {
+  const wrap = document.getElementById('logoQuickEmoji');
+  LOGO_EMOJIS.forEach(em => {
+    const s = document.createElement('span');
+    s.style.cssText = 'font-size:18px;cursor:pointer;padding:3px;border-radius:4px;transition:background .12s';
+    s.textContent = em;
+    s.onmouseover = ()=>s.style.background='var(--card2)';
+    s.onmouseout = ()=>s.style.background='';
+    s.onclick = (e)=>{ e.stopPropagation(); setLogoDisplay(em); save('config'); closeLogo(); };
+    wrap.appendChild(s);
+  });
+}
+
+// ─── EMOJI POPUP ──────────────────────────────────────────────────────────────
+function buildEpop() {
+  const pop = document.getElementById('epop');
+  // remove old emoji opts but keep title
+  pop.querySelectorAll('.eopt').forEach(e=>e.remove());
+  EMOJIS.forEach(em => {
+    const s = document.createElement('span');
+    s.className='eopt'; s.textContent=em;
+    s.onclick = function(e) {
+      e.stopPropagation();
+      if(!epopTarget) return;
+      const g = games.find(g=>g.id===epopTarget.gid);
+      if(g) {
+        if(epopTarget.field === 'gameEmoji') {
+          g.emoji = em;
+        } else if(epopTarget.field === 'bulkEmoji') {
+          // apply to server emoji field and ALL rows
+          g.serverEmoji = em;
+          g.rows.forEach(r => r.emoji = em);
+        } else {
+          const idx = parseInt(epopTarget.field.split('_')[1]);
+          if(g.rows[idx]) g.rows[idx].emoji = em;
+        }
+        save('config'); render(); refreshOutput();
+      }
+      pop.classList.remove('open'); epopTarget=null;
+    };
+    pop.appendChild(s);
+  });
+}
+
+function openEpop(gid, field, btnEl) {
+  const pop = document.getElementById('epop');
+  if(epopTarget&&epopTarget.gid===gid&&epopTarget.field===field&&pop.classList.contains('open'))
+    { pop.classList.remove('open'); epopTarget=null; return; }
+  epopTarget={gid,field};
+  const titleEl = document.getElementById('epopTitle');
+  if(field==='gameEmoji') titleEl.textContent='Emoji Judul Game';
+  else if(field==='bulkEmoji') titleEl.textContent='Emoji Semua Server (massal)';
+  else titleEl.textContent='Emoji Server Ini';
+  const rect=btnEl.getBoundingClientRect();
+  const isMobile=window.innerWidth<=680;
+  if(isMobile){
+    pop.style.left='';pop.style.top='';pop.style.bottom='';
+  } else {
+    pop.style.left=Math.min(rect.left,window.innerWidth-242)+'px';
+    pop.style.top=(rect.bottom+5)+'px';
+    pop.style.bottom='';
+  }
+  pop.classList.add('open');
+}
+
+// ─── GAMES ────────────────────────────────────────────────────────────────────
+function addGame(title,emoji,rows,servers) {
+  const id=genId();
+  const srv=servers||{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]};
+  games.push({id,title:title||'Nama Versi Game',emoji:emoji||'🎮',serverEmoji:emoji||'🎮',desc:'',rows:rows||[],servers:srv});
+  saveConfig();
+  if(rows&&rows.length) saveRows();
+  render(); refreshOutput();
+}
+
+async function removeGame(id) {
+  if(!await showConfirm('Hapus versi game ini?','🗑️')) return;
+  games=games.filter(g=>g.id!==id); save('config'); render(); refreshOutput();
+}
+
+function updateGame(id,field,val) {
+  const g=games.find(g=>g.id===id);
+  if(g){g[field]=val;save('config');refreshOutput();}
+}
+
+function updateGlobalDesc(val) {
+  globalDesc = val;
+  save('config'); refreshOutput();
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function render() {
+  const c=document.getElementById('gameSections');
+  c.innerHTML='';
+  // Rebuild seller server dropdown after render (games may have changed)
+  setTimeout(buildSellerServerUI, 0);
+  // Only render games that have at least 1 row
+  const activeGames = games.filter(g => g.rows.length > 0);
+  activeGames.forEach(g=>{
+    const div=document.createElement('div');
+    div.className='gblock'; div.id='gb_'+g.id;
+    div.innerHTML=`
+      <div class="ghead">
+        <!-- EMOJI GROUP: game title emoji + bulk server emoji -->
+        <div class="emj-group">
+          <button class="emj-btn" title="Emoji judul game ini" onclick="openEpop('${g.id}','gameEmoji',this)">${g.emoji}</button>
+          <div class="emj-divider"></div>
+          <button class="emj-btn" title="Set emoji ke SEMUA server dalam versi ini" onclick="openEpop('${g.id}','bulkEmoji',this)">${g.serverEmoji||g.emoji} <span style="font-size:9px;margin-left:1px">▾</span></button>
+        </div>
+        <input class="gtitle" placeholder="Nama Versi Game" value="${esc(g.title)}" oninput="updateGame('${g.id}','title',this.value)" />
+        <button class="btn bg" style="padding:3px 9px;font-size:11px" onclick="openModal('${g.id}')">⚙️ Server</button>
+        <button class="bdel" onclick="removeGameFromView('${g.id}')" title="Hapus dari tampilan" style="font-size:15px">🗑</button>
+      </div>
+      <div class="gbody" id="rows_${g.id}">${g.rows.map((r,i)=>rowHTML(g,r,i)).join('')}</div>
+      <div class="add-strip">
+        <button class="btn bgrn" onclick="addRow('${g.id}')">＋ Baris</button>
+      </div>`;
+    c.appendChild(div);
+  });
+}
+
+// ─── ROWS ─────────────────────────────────────────────────────────────────────
+function rowHTML(g,r,i) {
+  const regions=['US','EU','SEA','OCE','KR','CN'];
+  const regOpts=regions.map(reg=>`<option value="${reg}" ${r.region===reg?'selected':''}>${reg}</option>`).join('');
+  const srvs=g.servers[r.region]||[];
+  const srvOpts=srvs.length
+    ?srvs.map(s=>`<option value="${s}" ${r.server===s?'selected':''}>${s}</option>`).join('')
+    :`<option value="">— kosong —</option>`;
+  const facOpts=['A','H'].map(f=>`<option value="${f}" ${r.faction===f?'selected':''}>${f}</option>`).join('');
+  const methods=['Mail','F2F','Guild Bank','AH'];
+  const methodOpts=methods.map(m=>`<option value="${m}" ${(r.method||'Mail')===m?'selected':''}>${m}</option>`).join('');
+  const em=r.emoji||g.emoji||'🎮';
+
+  return `<div class="srow" id="row_${g.id}_${i}">
+    <button class="emj-btn row-emj" title="Emoji server ini" onclick="openEpop('${g.id}','rowEmoji_${i}',this)">${em}</button>
+    <select class="sel-reg" onchange="updateRow('${g.id}',${i},'region',this.value);reloadSrvOpts('${g.id}',${i})">${regOpts}</select>
+    <select class="sel-srv" id="ss_${g.id}_${i}" onchange="updateRow('${g.id}',${i},'server',this.value)">${srvOpts}</select>
+    <select class="sel-fac" onchange="updateRow('${g.id}',${i},'faction',this.value)">${facOpts}</select>
+    <span class="sep">·</span>
+    <input type="number" class="inp-g" placeholder="gold" value="${r.gold}" min="0" oninput="updateRow('${g.id}',${i},'gold',this.value)"/>
+    <span class="sep">@</span>
+    <input type="number" class="inp-r" placeholder="rate" value="${r.rate}" min="0" oninput="updateRow('${g.id}',${i},'rate',this.value)"/>
+    <select class="sel-method" onchange="updateRow('${g.id}',${i},'method',this.value)">${methodOpts}</select>
+    <button class="bdel" onclick="removeRow('${g.id}',${i})">✕</button>
+  </div>`;
+}
+
+function updateRow(gid,idx,field,val) {
+  const g=games.find(g=>g.id===gid);
+  if(!g||!g.rows[idx])return;
+  g.rows[idx][field]=val;
+  // Sync card state for gold and method from form (only if user hasn't manually edited the card)
+  const key = gid + '_' + idx;
+  if(field==='gold'||field==='method') {
+    if(!rateCardStates[key]) rateCardStates[key]={gold:g.rows[idx].gold||'',method:g.rows[idx].method||'Mail'};
+    if(field==='gold') rateCardStates[key].gold=val;
+    if(field==='method') { rateCardStates[key].method=val; rateCardStates[key]._methodOverride=null; }
+  }
+  save('rows'); refreshOutput();
+}
+
+function reloadSrvOpts(gid,idx) {
+  const g=games.find(g=>g.id===gid);
+  if(!g)return;
+  const row=g.rows[idx];
+  const regSel=document.querySelector(`#row_${gid}_${idx} .sel-reg`);
+  row.region=regSel.value;
+  const srvSel=document.getElementById('ss_'+gid+'_'+idx);
+  const srvs=g.servers[row.region]||[];
+  srvSel.innerHTML=srvs.length
+    ?srvs.map(s=>`<option value="${s}">${s}</option>`).join('')
+    :`<option value="">— kosong —</option>`;
+  row.server=srvs[0]||''; save('rows'); refreshOutput();
+}
+
+function addRow(gid) {
+  const g=games.find(g=>g.id===gid);
+  if(!g)return;
+  const firstReg=Object.keys(g.servers).find(r=>g.servers[r].length)||'US';
+  const firstSrv=(g.servers[firstReg]||[])[0]||'';
+  g.rows.push({region:firstReg,server:firstSrv,faction:'A',method:'Mail',gold:'',rate:'',emoji:g.emoji});
+  save('rows'); render(); refreshOutput();
+}
+
+function removeRow(gid,idx) {
+  const g=games.find(g=>g.id===gid);
+  if(!g)return;
+  const key=gid+'_'+idx;
+  delete rateCardStates[key];
+  g.rows.splice(idx,1); save('rows'); render(); refreshOutput();
+}
+
+// ─── OUTPUT ───────────────────────────────────────────────────────────────────
+function refreshOutput() {
+  let lines=[];
+  games.forEach(g=>{
+    if(!g.rows.length)return;
+    const gem=g.emoji||'🎮';
+    const visibleRows = g.rows.filter(r => (r.gold&&r.gold!=='') || (r.rate&&r.rate!==''));
+    if(!visibleRows.length) return;
+    lines.push(`${gem} WTB Gold ${g.title}`);
+    lines.push('');
+    g.rows.forEach(r=>{
+      if((!r.gold||r.gold==='')&&(!r.rate||r.rate==='')) return;
+      const rem=r.emoji||gem;
+      const factionFull = r.faction==='A' ? 'Alliance' : r.faction==='H' ? 'Horde' : r.faction;
+      const rowTitle = g.title.split(' ')[0];
+      let line=`${rem}${rowTitle} ${r.server} ${factionFull} ${r.region}`;
+      if(r.gold&&r.gold!=='') line+=` ${Number(r.gold).toLocaleString()}g`;
+      if(r.rate&&r.rate!=='') line+=` rate ${r.rate}`;
+      if(r.method&&r.method!=='') line+=` (${r.method})`;
+      lines.push(line);
+    });
+    lines.push('');
+  });
+  if(globalDesc&&globalDesc.trim()) {
+    lines.push(globalDesc.trim());
+    lines.push('');
+  }
+  while(lines.length&&lines[lines.length-1]==='') lines.pop();
+  document.getElementById('outputBubble').textContent=lines.join('\n')||'Isi form untuk melihat preview...';
+  const n=new Date();
+  document.getElementById('outputTime').textContent=n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0');
+  refreshRateCard();
+}
+
+// ─── RATE CARD — per-row copy cards ──────────────────────────────────────────
+// Each row in the output gets its own copy card with editable gold & method
+let rateCardStates = {}; // key: gid_rowIdx → {gold, method}
+
+function refreshRateCard() {
+  const wrap = document.getElementById('rateCardWrap');
+  const container = document.getElementById('rateCardCards');
+  container.innerHTML = '';
+  let hasAny = false;
+
+  // Warna aksen per game (cycling)
+  const GAME_COLORS = ['#2ea6ff','#4cd964','#f5a623','#ff5c5c','#bf7fff','#5ac8fa','#ffcc00','#ff9500'];
+
+  games.forEach((g, gIdx) => {
+    if (!g.rows.length) return;
+    const gem = g.emoji || '🎮';
+    const rateRows = g.rows.filter(r => r.rate && r.rate !== '');
+    if (!rateRows.length) return;
+    hasAny = true;
+
+    const accentColor = GAME_COLORS[gIdx % GAME_COLORS.length];
+
+    // Game group header separator
+    const groupHeader = document.createElement('div');
+    groupHeader.style.cssText = `display:flex;align-items:center;gap:8px;margin-top:${gIdx===0?'0':'6px'};margin-bottom:4px`;
+    groupHeader.innerHTML = `
+      <div style="width:3px;height:18px;border-radius:2px;background:${accentColor};flex-shrink:0"></div>
+      <span style="font-size:11px;font-weight:700;color:${accentColor};text-transform:uppercase;letter-spacing:.5px">${gem} ${g.title}</span>
+      <div style="flex:1;height:1px;background:linear-gradient(to right,${accentColor}40,transparent)"></div>
+    `;
+    container.appendChild(groupHeader);
+
+    rateRows.forEach((r, origIdx) => {
+      const rowIdx = g.rows.indexOf(r);
+      const key = g.id + '_' + rowIdx;
+      // Init state if not exist
+      if (!rateCardStates[key]) {
+        rateCardStates[key] = { gold: r.gold || '', method: r.method || 'Mail' };
+      } else {
+        // Sync method from input row (method on card follows input unless card dropdown changed it via updateCardState)
+        rateCardStates[key].method = rateCardStates[key]._methodOverride || r.method || 'Mail';
+      }
+      const state = rateCardStates[key];
+      const rem = r.emoji || gem;
+      const factionFull = r.faction === 'A' ? 'Alliance' : r.faction === 'H' ? 'Horde' : r.faction;
+      const rate = r.rate;
+
+      const card = document.createElement('div');
+      card.className = 'ocard';
+      card.id = 'rcc_' + key;
+      card.style.cssText = `overflow:visible;border-left:3px solid ${accentColor}`;
+
+      // Build preview text
+      const previewText = buildCardText(rem, g.title, r.server, factionFull, state.gold, rate, state.method);
+
+      const methods = ['Mail','F2F','Guild Bank','AH'];
+      const methodOpts = methods.map(m => `<option value="${m}" ${state.method===m?'selected':''}>${m}</option>`).join('');
+
+      card.innerHTML = `
+        <div class="ohead" style="font-size:11px;gap:6px">
+          <span style="flex:1;font-size:12px;color:var(--text)">${rem} ${g.title} — ${r.server} <span style="color:var(--muted)">${factionFull}</span></span>
+          <span style="color:var(--blue);font-size:11px">rate ${rate}</span>
+        </div>
+        <div style="padding:8px 10px;display:grid;grid-template-columns:1fr 1fr;gap:6px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Gold</span>
+            <input type="number" style="width:100%;height:30px;font-size:13px;background:var(--inp);border:1px solid var(--inp-b);color:var(--text);border-radius:5px;padding:2px 8px;outline:none;font-family:var(--font)"
+              placeholder="jumlah gold" value="${state.gold}"
+              oninput="updateCardState('${key}','gold',this.value)" />
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Metode</span>
+            <select style="width:100%;height:30px;font-size:13px;background:var(--inp);border:1px solid var(--inp-b);color:var(--text);border-radius:5px;padding:2px 8px;outline:none;font-family:var(--font);cursor:pointer"
+              onchange="updateCardState('${key}','method',this.value)">
+              ${methodOpts}
+            </select>
+          </div>
+        </div>
+        <div class="bwrap" style="padding:10px 12px">
+          <div class="bubble" id="rcbubble_${key}" style="font-size:12.5px;min-height:36px">${previewText}</div>
+        </div>
+        <div class="cwrap" style="padding:0 10px 10px">
+          <button class="cpybtn" id="rcbtn_${key}" onclick="copyCardText('${key}')" style="padding:10px">📋 Copy</button>
+        </div>`;
+      container.appendChild(card);
+    });
+  });
+
+  wrap.style.display = hasAny ? 'block' : 'none';
+}
+
+function buildCardText(rem, title, server, factionFull, gold, rate, method) {
+  let line1 = `${rem} ${title}`;
+  const rowTitle2 = title.split(' ')[0];
+  let line2 = `${rem}${rowTitle2} ${server} ${factionFull}`;
+  if (gold && gold !== '') line2 += ` ${Number(gold).toLocaleString()}g`;
+  line2 += ` rate ${rate}`;
+  line2 += ` (${method})`;
+  return line1 + '\n' + line2;
+}
+
+function updateCardState(key, field, val) {
+  if (!rateCardStates[key]) rateCardStates[key] = { gold: '', method: 'Mail' };
+  rateCardStates[key][field] = val;
+  // Track if user manually overrode method in copy card
+  if (field === 'method') rateCardStates[key]._methodOverride = val;
+  // Rebuild preview for this card
+  const card = document.getElementById('rcc_' + key);
+  if (!card) return;
+  const bubble = document.getElementById('rcbubble_' + key);
+  if (!bubble) return;
+  // Find matching row
+  const lastUnderscore = key.lastIndexOf('_');
+  const gid = key.substring(0, lastUnderscore);
+  const rowIdx = parseInt(key.substring(lastUnderscore + 1));
+  const g = games.find(g => g.id === gid);
+  if (!g) return;
+  const r = g.rows[rowIdx];
+  if (!r) return;
+  const gem = g.emoji || '🎮';
+  const rem = r.emoji || gem;
+  const factionFull = r.faction === 'A' ? 'Alliance' : r.faction === 'H' ? 'Horde' : r.faction;
+  const state = rateCardStates[key];
+  bubble.textContent = buildCardText(rem, g.title, r.server, factionFull, state.gold, r.rate, state.method);
+}
+
+function copyCardText(key) {
+  const bubble = document.getElementById('rcbubble_' + key);
+  const btn = document.getElementById('rcbtn_' + key);
+  if (!bubble || !btn) return;
+  const text = bubble.textContent;
+  const ok = () => {
+    btn.classList.add('copied'); btn.textContent = '✓ Tersalin!'; showToast('Disalin!');
+    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '📋 Copy'; }, 2000);
+  };
+  navigator.clipboard.writeText(text).then(ok).catch(() => {
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); ok();
+  });
+}
+
+// Remove all rows from a game (hides it from view), don't delete the game config
+async function removeGameFromView(id) {
+  if(!await showConfirm('Sembunyikan versi game ini dari tampilan?\n(Baris akan dihapus, konfigurasi server tetap tersimpan)', '🙈')) return;
+  const g = games.find(g => g.id === id);
+  if(g) { g.rows = []; save('rows'); render(); refreshOutput(); }
+}
+
+// For backward compat — full delete
+async function removeGame(id) {
+  if(!await showConfirm('Hapus versi game ini secara permanen?','🗑️')) return;
+  games=games.filter(g=>g.id!==id); save('config'); render(); refreshOutput();
+}
+
+// ─── GAME PICKER ──────────────────────────────────────────────────────────────
+let gpickSelected = new Set(); // set of game ids selected in picker
+
+function openGamePicker() {
+  gpickSelected = new Set();
+  document.getElementById('gpickSearch').value = '';
+  renderGamePickerList('');
+  document.getElementById('gpickModal').classList.add('open');
+  setTimeout(()=>document.getElementById('gpickSearch').focus(), 100);
+}
+
+function closeGamePicker() {
+  document.getElementById('gpickModal').classList.remove('open');
+}
+
+function filterGamePicker(q) {
+  renderGamePickerList(q.toLowerCase());
+}
+
+function renderGamePickerList(q) {
+  const list = document.getElementById('gpickList');
+  list.innerHTML = '';
+  // Show all games from master list; highlight ones already active (have rows)
+  games.forEach(g => {
+    const name = g.title.toLowerCase();
+    if(q && !name.includes(q) && !g.emoji.includes(q)) return;
+    const hasRows = g.rows.length > 0;
+    const isSelected = gpickSelected.has(g.id);
+    const item = document.createElement('div');
+    item.className = 'gpick-item' + (isSelected ? ' active' : '');
+    item.innerHTML = `
+      <span class="gpick-emj">${g.emoji}</span>
+      <span class="gpick-name">${esc(g.title)}${hasRows ? ' <span style="font-size:10px;color:var(--green);font-weight:400">● aktif</span>' : ''}</span>
+      <span class="gpick-check">✓</span>`;
+    item.onclick = () => {
+      if(hasRows) { showAlert('Game ini sudah aktif di tampilan. Hapus barisnya dulu jika ingin menambah ulang.', 'ℹ️'); return; }
+      if(gpickSelected.has(g.id)) { gpickSelected.delete(g.id); item.classList.remove('active'); }
+      else { gpickSelected.add(g.id); item.classList.add('active'); }
+    };
+    list.appendChild(item);
+  });
+  if(!list.children.length) {
+    list.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:24px">Tidak ada game yang cocok</div>';
+  }
+}
+
+function confirmGamePicker() {
+  if(gpickSelected.size === 0) { showAlert('Pilih minimal satu versi game dulu!', 'ℹ️'); return; }
+  gpickSelected.forEach(id => {
+    const g = games.find(g => g.id === id);
+    if(!g) return;
+    // Auto-add one row so game appears
+    const firstReg = Object.keys(g.servers).find(r => g.servers[r].length) || 'US';
+    const firstSrv = (g.servers[firstReg] || [])[0] || '';
+    g.rows.push({region:firstReg, server:firstSrv, faction:'A', method:'Mail', gold:'', rate:'', emoji:g.emoji});
+  });
+  save('rows'); render(); refreshOutput();
+  closeGamePicker();
+}
+
+function addCustomGame() {
+  closeGamePicker();
+  // addGame with blank title — same as before
+  const id=genId();
+  games.push({id,title:'Nama Versi Game',emoji:'🎮',serverEmoji:'🎮',desc:'',rows:[{region:'US',server:'',faction:'A',method:'Mail',gold:'',rate:'',emoji:'🎮'}],servers:{US:[],EU:[],SEA:[],OCE:[],KR:[],CN:[]}});
+  saveConfig(); saveRows(); render(); refreshOutput();
+}
+
+
+function copyOutput() {
+  const text=document.getElementById('outputBubble').textContent;
+  const btn=document.getElementById('copyBtn');
+  const ok=()=>{
+    btn.classList.add('copied');btn.textContent='✓ Tersalin!';showToast('Disalin ke clipboard!');
+    setTimeout(()=>{btn.classList.remove('copied');btn.innerHTML='📋 Copy ke Clipboard';},2000);
+  };
+  navigator.clipboard.writeText(text).then(ok).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);ok();
+  });
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent='✓ '+msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+function openModal(gid){
+  modalGid=gid;
+  const g=games.find(g=>g.id===gid);
+  if(!g)return;
+  document.getElementById('mTitle').textContent=g.title;
+  renderModal(g);
+  document.getElementById('srvModal').classList.add('open');
+}
+
+function closeModal(){
+  document.getElementById('srvModal').classList.remove('open');
+  modalGid=null; render(); refreshOutput();
+}
+
+function renderModal(g){
+  const body=document.getElementById('mBody');
+  body.innerHTML='';
+  ['US','EU','SEA','OCE','KR','CN'].forEach(reg=>{
+    const srvs=g.servers[reg]||[];
+    const lbl=document.createElement('div');
+    lbl.className='reg-lbl';
+    lbl.textContent=reg+(srvs.length?` (${srvs.length})`:'  — kosong');
+    body.appendChild(lbl);
+    if(!srvs.length){
+      const e=document.createElement('div');
+      e.style.cssText='font-size:11px;color:var(--muted);padding:2px 4px';
+      e.textContent='Belum ada server.';body.appendChild(e);
+    }
+    srvs.forEach((srv,i)=>{
+      const row=document.createElement('div');row.className='srvrow';
+      row.innerHTML=`<span>${srv}</span>
+        <button class="bdel" onclick="removeSrv('${reg}',${i})" style="font-size:13px">🗑</button>`;
+      body.appendChild(row);
+    });
+  });
+}
+
+async function removeSrv(region,idx){
+  const g=games.find(g=>g.id===modalGid);
+  if(!g)return;
+  if(!await showConfirm(`Hapus "${g.servers[region][idx]}"?`,'🗑️'))return;
+  g.servers[region].splice(idx,1); save('config'); renderModal(g);
+}
+
+function addSrv(){
+  const g=games.find(g=>g.id===modalGid);
+  if(!g)return;
+  const region=document.getElementById('newReg').value;
+  const name=document.getElementById('newSrv').value.trim();
+  if(!name){showAlert('Masukkan nama server!','📝');return;}
+  if(!g.servers[region])g.servers[region]=[];
+  if(g.servers[region].some(s=>s.toLowerCase()===name.toLowerCase())){showAlert('Server sudah ada!','⚠️');return;}
+  g.servers[region].push(name);
+  document.getElementById('newSrv').value='';
+  save('config'); renderModal(g); showToast('Server ditambahkan!');
+}
+
+function bulkImport(){
+  const g=games.find(g=>g.id===modalGid);
+  if(!g)return;
+  const region=document.getElementById('bulkRegion').value;
+  const names=document.getElementById('bulkText').value.split('\n').map(s=>s.trim()).filter(s=>s);
+  if(!names.length){showAlert('Tulis nama server dulu!','📝');return;}
+  if(!g.servers[region])g.servers[region]=[];
+  let added=0,skipped=0;
+  names.forEach(name=>{
+    if(g.servers[region].some(s=>s.toLowerCase()===name.toLowerCase())){skipped++;return;}
+    g.servers[region].push(name);added++;
+  });
+  document.getElementById('bulkText').value='';
+  save('config'); renderModal(g);
+  showToast(`${added} server ditambahkan${skipped?`, ${skipped} duplikat dilewati`:''}`);
+}
+
+document.getElementById('srvModal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+document.getElementById('cxAlert').addEventListener('click',function(e){if(e.target===this)cxAlertClose();});
+document.getElementById('cxConfirm').addEventListener('click',function(e){if(e.target===this)cxConfirmCancel();});
+document.getElementById('pwModal').addEventListener('click',function(e){if(e.target===this)closePwModal();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closePwModal();closeModal();cxAlertClose();cxConfirmCancel();}});
+
+// ─── SELLER MESSAGE GENERATOR ────────────────────────────────────────────────
+const SELLER_LS_KEY = 'wtbgold_seller_v1';
+let sellerMethod = 'Mail';
+let sellerDescEditing = false;
+
+// Default ketentuan per metode — bisa diedit dan tersimpan
+const DEFAULT_SELLER_DESCS = {
+  'Mail': `• Kirim gold via MAIL ke nick buyer di bawah\n• Pastikan ID/nick sesuai sebelum kirim\n• Jangan perlihatkan Telegram saat merekam\n• Wajib rekam video saat pengiriman\n• Kirim bukti video sebelum minta TF`,
+  'F2F': `• Kirim gold secara langsung / Face to Face\n• Pastikan sudah add karakter buyer sebagai friend\n• Ketemu di lokasi yang disepakati (tulis di chat)\n• Wajib rekam video saat bertemu & transfer gold\n• Kirim bukti video sebelum minta TF`,
+  'Guild Bank': `• Tunjukkan nick buyer ada di dalam guild di video\n• Via: GUILD BANK\n• Whisper "invite guild" ke buyer jika belum masuk\n• Wajib rekam jika tidak ada bukti video payment pending lama\n• Kirim bukti video sebelum minta TF`,
+  'AH': `• List gold item di Auction House sesuai harga\n• Pastikan nama item & harga sesuai kesepakatan\n• Wajib rekam video saat posting AH\n• Kirim bukti video & screenshot listing sebelum minta TF`
+};
+
+// Cache seller descs di memori agar tidak perlu localStorage terus
+let _sellerDescsCache = null;
+
+function getSellerDescs() {
+  if (_sellerDescsCache) return _sellerDescsCache;
+  try {
+    const raw = localStorage.getItem(SELLER_LS_KEY);
+    if (raw) { _sellerDescsCache = JSON.parse(raw); return _sellerDescsCache; }
+  } catch(e) {}
+  return {};
+}
+
+function getSellerDesc(method) {
+  const saved = getSellerDescs();
+  return saved[method] !== undefined ? saved[method] : DEFAULT_SELLER_DESCS[method] || '';
+}
+
+function saveSellerDesc() {
+  const method = sellerMethod;
+  const val = document.getElementById('sellerDescEdit').value;
+  const descs = getSellerDescs();
+  descs[method] = val;
+  _sellerDescsCache = descs;
+  // Simpan ke localStorage sebagai cache cepat
+  try { localStorage.setItem(SELLER_LS_KEY, JSON.stringify(descs)); } catch(e) {}
+  document.getElementById('sellerDescPreview').textContent = val;
+  // Sync ke Supabase — simpan seller_descs di dalam data row yang sama
+  syncSellerDescsToSupabase(descs);
+}
+
+let _sellerSyncTimeout = null;
+async function syncSellerDescsToSupabase(descs) {
+  clearTimeout(_sellerSyncTimeout);
+  _sellerSyncTimeout = setTimeout(async () => {
+    try {
+      // Ambil data config saat ini lalu tambahkan seller_descs
+      const configSnap = getConfigSnapshot();
+      configSnap.seller_descs = descs;
+      const { error } = await sbClient
+        .from(SB_TABLE)
+        .upsert({
+          id: SB_ROW_ID,
+          versi_game: getCurrentVersiGame(),
+          data: configSnap,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+      if (error) throw error;
+      showSaveStatus('✓ Ketentuan tersimpan');
+    } catch(e) {
+      console.error('Supabase seller desc save error:', e);
+      showSaveStatus('⚠ Gagal sync ketentuan', true);
+    }
+  }, 600);
+}
+
+function setSellerMethod(method, btnEl) {
+  sellerMethod = method;
+  document.querySelectorAll('.method-tab').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  const desc = getSellerDesc(method);
+  document.getElementById('sellerDescPreview').textContent = desc;
+  document.getElementById('sellerDescEdit').value = desc;
+  if (sellerDescEditing) document.getElementById('sellerDescEdit').style.display = 'block';
+  buildSellerMsg();
+}
+
+function toggleSellerDescEdit() {
+  sellerDescEditing = !sellerDescEditing;
+  const edit = document.getElementById('sellerDescEdit');
+  const preview = document.getElementById('sellerDescPreview');
+  if (sellerDescEditing) {
+    edit.value = getSellerDesc(sellerMethod);
+    edit.style.display = 'block';
+    preview.style.display = 'none';
+    edit.focus();
+  } else {
+    edit.style.display = 'none';
+    preview.style.display = 'block';
+    saveSellerDesc();
+  }
+  buildSellerMsg();
+}
+
+// ─── SELLER SERVER DROPDOWN ───────────────────────────────────────────────────
+let sellerVersionSelected = null; // null = semua versi
+let sellerManualMode = false;
+let sellerFilterOpen = false;
+
+function toggleSellerFilter() {
+  sellerFilterOpen = !sellerFilterOpen;
+  const wrap = document.getElementById('sellerVersionFilterWrap');
+  const btn = document.getElementById('sellerFilterToggle');
+  if (wrap) wrap.style.display = sellerFilterOpen ? 'block' : 'none';
+  if (btn) {
+    btn.style.borderColor = sellerFilterOpen ? 'var(--blue)' : 'var(--border)';
+    btn.style.color = sellerFilterOpen ? 'var(--blue)' : 'var(--muted)';
+    btn.textContent = sellerFilterOpen ? '🎮 Filter ▴' : '🎮 Filter ▾';
+  }
+}
+
+function buildSellerServerUI() {
+  // Kumpulkan semua versi game yang punya server
+  const versions = games.filter(g => {
+    if (!g.servers) return false;
+    // servers bisa object {US:[...], EU:[...]} atau array
+    if (Array.isArray(g.servers)) return g.servers.length > 0;
+    return Object.values(g.servers).some(arr => arr && arr.length > 0);
+  });
+  const filter = document.getElementById('sellerVersionFilter');
+  if (!filter) return;
+
+  // Render tombol filter versi
+  filter.innerHTML = '';
+  // Tombol "Semua"
+  const allBtn = document.createElement('button');
+  allBtn.textContent = '🌐 Semua';
+  allBtn.className = 'method-tab' + (sellerVersionSelected === null ? ' active' : '');
+  allBtn.onclick = () => { sellerVersionSelected = null; buildSellerServerUI(); };
+  allBtn.style.cssText = 'font-size:11px;padding:3px 8px;min-height:28px';
+  filter.appendChild(allBtn);
+
+  versions.forEach(g => {
+    const btn = document.createElement('button');
+    btn.textContent = (g.emoji || '') + ' ' + g.title;
+    btn.className = 'method-tab' + (sellerVersionSelected === g.id ? ' active' : '');
+    btn.onclick = () => { sellerVersionSelected = g.id; buildSellerServerUI(); };
+    btn.style.cssText = 'font-size:11px;padding:3px 8px;min-height:28px';
+    filter.appendChild(btn);
+  });
+
+  // Populate dropdown server sesuai filter
+  const dropdown = document.getElementById('sellerServerDropdown');
+  if (!dropdown) return;
+  const currentVal = document.getElementById('sellerServer').value;
+  dropdown.innerHTML = '<option value="">— Pilih server —</option>';
+
+  const filtered = sellerVersionSelected
+    ? versions.filter(g => g.id === sellerVersionSelected)
+    : versions;
+
+  filtered.forEach(g => {
+    // servers adalah object {US: ['name1',...], EU: [...]}
+    const srvObj = g.servers || {};
+    const regions = Array.isArray(srvObj)
+      ? {} // fallback jika array kosong
+      : srvObj;
+    const gameLabel = filtered.length > 1 ? (g.emoji || '') + ' ' + g.title : null;
+    Object.entries(regions).forEach(([reg, names]) => {
+      if (!names || names.length === 0) return;
+      const grp = document.createElement('optgroup');
+      grp.label = gameLabel ? `${gameLabel} · ${reg}` : reg;
+      names.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = n;
+        if (n === currentVal) opt.selected = true;
+        grp.appendChild(opt);
+      });
+      dropdown.appendChild(grp);
+    });
+  });
+
+  // Tambah opsi manual di akhir
+  const manualOpt = document.createElement('option');
+  manualOpt.value = '__manual__';
+  manualOpt.textContent = '✏️ Input manual...';
+  dropdown.appendChild(manualOpt);
+
+  // If no versions, hide the filter toggle button entirely
+  const filterToggle = document.getElementById('sellerFilterToggle');
+  if (filterToggle) filterToggle.style.display = versions.length === 0 ? 'none' : '';
+}
+
+function onSellerServerDropdown(val) {
+  if (val === '__manual__') {
+    // Switch ke mode manual
+    sellerManualMode = true;
+    document.getElementById('sellerServerManual').style.display = 'block';
+    document.getElementById('sellerServerManual').focus();
+    document.getElementById('sellerManualBtn').style.borderColor = 'var(--blue)';
+    document.getElementById('sellerManualBtn').style.color = 'var(--blue)';
+    document.getElementById('sellerServer').value = document.getElementById('sellerServerManual').value.trim();
+  } else {
+    sellerManualMode = false;
+    document.getElementById('sellerServer').value = val;
+    // Sembunyikan manual jika ada value dari dropdown
+    if (val) {
+      document.getElementById('sellerServerManual').style.display = 'none';
+      document.getElementById('sellerManualBtn').style.borderColor = 'var(--border)';
+      document.getElementById('sellerManualBtn').style.color = 'var(--muted)';
+    }
+  }
+  buildSellerMsg();
+}
+
+function onSellerServerManual(val) {
+  document.getElementById('sellerServer').value = val.trim();
+  buildSellerMsg();
+}
+
+function toggleSellerManual() {
+  sellerManualMode = !sellerManualMode;
+  const manualInp = document.getElementById('sellerServerManual');
+  const btn = document.getElementById('sellerManualBtn');
+  if (sellerManualMode) {
+    manualInp.style.display = 'block';
+    manualInp.focus();
+    btn.style.borderColor = 'var(--blue)';
+    btn.style.color = 'var(--blue)';
+    // Jangan reset server value
+  } else {
+    manualInp.style.display = 'none';
+    btn.style.borderColor = 'var(--border)';
+    btn.style.color = 'var(--muted)';
+    // Kembalikan ke pilihan dropdown
+    const ddVal = document.getElementById('sellerServerDropdown').value;
+    if (ddVal && ddVal !== '__manual__') {
+      document.getElementById('sellerServer').value = ddVal;
+    } else {
+      document.getElementById('sellerServerDropdown').value = '';
+      document.getElementById('sellerServer').value = '';
+    }
+    buildSellerMsg();
+  }
+}
+
+function buildSellerMsg() {
+  const nick = document.getElementById('sellerNick').value.trim();
+  const gold = document.getElementById('sellerGold').value.trim();
+  const rate = document.getElementById('sellerRate').value.trim();
+  const server = document.getElementById('sellerServer').value.trim();
+  const faction = document.getElementById('sellerFaction').value;
+  const desc = getSellerDesc(sellerMethod);
+
+  let lines = [];
+
+  // Header
+  lines.push(`🙏 Ampun bangjugo!!`);
+  lines.push('');
+
+  // Detail order
+  if (server) lines.push(`**Server** : ${server}${faction ? ' — ' + faction : ''}`);
+  if (nick) lines.push(`**Nick Buyer** : \`${nick}\``);
+  if (gold) lines.push(`**Jumlah** : ${Number(gold).toLocaleString()}g`);
+  if (rate) lines.push(`**Rate** : ${rate}/g`);
+  lines.push(`**Metode** : ${sellerMethod}`);
+  if (gold && rate) {
+    const total = Math.round(Number(gold) * Number(rate));
+    lines.push(`💰 **Total** : Rp ${total.toLocaleString('id-ID')}`);
+  }
+  lines.push('');
+
+  // Ketentuan
+  if (desc.trim()) {
+    lines.push(`📝 Ketentuan:`);
+    desc.trim().split('\n').forEach(l => lines.push(l));
+  }
+
+  const out = lines.join('\n');
+  _sellerRawText = out.replace(/\*\*(.+?)\*\*/g, '$1'); // teks bersih untuk copy
+  const preview = document.getElementById('sellerPreview');
+
+  // Render dengan bold + nick yang bisa diklik untuk copy
+  {
+    let html = out.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    if (nick) {
+      const nickEsc = nick.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      html = html.replace('`' + nickEsc + '`',
+        `<span id="nickClickable" onclick="copyNick('${nick.replace(/'/g,"\\'")}')" title="Klik untuk copy nickname" style="background:rgba(46,166,255,0.18);border:1px solid rgba(46,166,255,0.5);border-radius:4px;padding:1px 5px;cursor:pointer;color:var(--blue);font-weight:600;user-select:none;transition:background .15s" onmouseover="this.style.background='rgba(46,166,255,0.32)'" onmouseout="this.style.background='rgba(46,166,255,0.18)'">\`${nickEsc}\`</span>`
+      );
+    }
+    preview.innerHTML = html || 'Isi form di atas untuk melihat preview pesan...';
+  }
+
+  const n = new Date();
+  document.getElementById('sellerTime').textContent =
+    n.getHours().toString().padStart(2,'0') + ':' + n.getMinutes().toString().padStart(2,'0');
+}
+
+function copyNick(nick) {
+  navigator.clipboard.writeText(nick).catch(() => {
+    const ta = document.createElement('textarea'); ta.value = nick;
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+  showToast('Nick "' + nick + '" disalin!');
+  const el = document.getElementById('nickClickable');
+  if (el) { el.style.background='rgba(76,217,100,0.25)'; el.style.borderColor='var(--green)'; setTimeout(()=>{ el.style.background='rgba(46,166,255,0.18)'; el.style.borderColor='rgba(46,166,255,0.5)'; },1200); }
+}
+
+let _sellerRawText = '';
+
+function copySellerMsg() {
+  const text = _sellerRawText || document.getElementById('sellerPreview').innerText;
+  if (!text || text.startsWith('Isi form')) { showToast('Preview kosong!'); return; }
+  const btn = document.getElementById('sellerCopyBtn');
+  const ok = () => {
+    btn.classList.add('copied'); btn.textContent = '✓ Tersalin!'; showToast('Pesan seller disalin!');
+    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '📋 Copy Pesan ke Seller'; }, 2000);
+  };
+  navigator.clipboard.writeText(text).then(ok).catch(() => {
+    const ta = document.createElement('textarea'); ta.value = text;
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta); ok();
+  });
+}
+
+// Init seller section on load
+window.addEventListener('load', function() {
+  const desc = getSellerDesc('Mail');
+  document.getElementById('sellerDescPreview').textContent = desc;
+  document.getElementById('sellerDescEdit').value = desc;
+  buildSellerServerUI();
+  buildSellerMsg();
+}, { once: true });
+</script>
+</body>
+</html>

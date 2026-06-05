@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client"
 import {
   calcG2GMinSell,
   calcG2GFromSell,
+  calcG2GBreakdown,
   calcDirectFromBuy,
   calcDirectFromOffer,
   type G2GFeeParams,
@@ -147,7 +148,8 @@ function G2GCalc({ fee }: { fee: G2GFeeParams }) {
   const effectiveWdPct = fee.withdrawalFeePct * (1 + fee.vatPct / 100)
   const totalCostPct = eff + effectiveWdPct
 
-  // Shared locked margin
+  const [buyPrice, setBuyPrice] = useState(0)
+  const [sellPrice, setSellPrice] = useState(0)
   const [margin, setMargin] = useState(0.6)
   const [marginLocked, setMarginLocked] = useState(false)
 
@@ -171,148 +173,128 @@ function G2GCalc({ fee }: { fee: G2GFeeParams }) {
     localStorage.setItem("calc-g2g-margin", String(margin))
   }
 
-  // Arah 1
-  const [buyPrice1, setBuyPrice1] = useState(0)
+  const hasBuy = buyPrice > 0
+  const hasSell = sellPrice > 0
+
   const minSell = useMemo(
-    () => buyPrice1 > 0 ? calcG2GMinSell(buyPrice1, margin, fee) : 0,
-    [buyPrice1, margin, fee]
+    () => hasBuy && !hasSell ? calcG2GMinSell(buyPrice, margin, fee) : 0,
+    [buyPrice, sellPrice, margin, fee, hasBuy, hasSell]
   )
-  const breakdown1 = useMemo(
-    () => minSell > 0 ? calcG2GFromSell(minSell, 0, fee, buyPrice1) : null,
-    [minSell, buyPrice1, fee]
+  const fromMinSell = useMemo(
+    () => minSell > 0 ? calcG2GFromSell(minSell, 0, fee, buyPrice) : null,
+    [minSell, buyPrice, fee]
   )
-
-  // Arah 2
-  const [sellPrice2, setSellPrice2] = useState(0)
-  const result2 = useMemo(
-    () => sellPrice2 > 0 ? calcG2GFromSell(sellPrice2, margin, fee) : null,
-    [sellPrice2, margin, fee]
+  const fromSellOnly = useMemo(
+    () => hasSell && !hasBuy ? calcG2GFromSell(sellPrice, margin, fee) : null,
+    [sellPrice, buyPrice, margin, fee, hasSell, hasBuy]
   )
-
-  // Shared margin input block
-  const marginInput = (
-    <NumInput
-      label="Target Margin (%)"
-      value={margin}
-      onChange={handleMarginChange}
-      suffix="%"
-      step={0.1}
-      locked={marginLocked}
-      onToggleLock={toggleMarginLock}
-      hint={marginLocked ? "Margin dikunci — klik 'Terkunci' untuk ubah" : undefined}
-    />
+  const breakdown = useMemo(
+    () => hasBuy && hasSell ? calcG2GBreakdown(buyPrice, sellPrice, fee) : null,
+    [buyPrice, sellPrice, fee, hasBuy, hasSell]
   )
 
   return (
-    <div className="space-y-6">
-      <Tabs defaultValue="arah1">
-        <TabsList className="bg-card border border-border w-full">
-          <TabsTrigger value="arah1" className="flex-1 data-[state=active]:bg-gold data-[state=active]:text-background">
-            Dari Harga Beli → Min Post G2G
-          </TabsTrigger>
-          <TabsTrigger value="arah2" className="flex-1 data-[state=active]:bg-gold data-[state=active]:text-background">
-            Dari Harga Jual → Max Beli Farmer
-          </TabsTrigger>
-        </TabsList>
+    <div className="grid gap-6 lg:grid-cols-2">
+      {/* Left: Inputs */}
+      <div className="space-y-4">
+        <NumInput label="Harga Beli / unit (IDR)" value={buyPrice} onChange={setBuyPrice} prefix="Rp" hint="Harga dari supplier/Telegram (opsional)" />
+        <NumInput label="Harga Jual di G2G (IDR)" value={sellPrice} onChange={setSellPrice} prefix="Rp" hint="Harga posting kamu atau harga kompetitor (opsional)" />
+        <NumInput
+          label="Target Margin (%)"
+          value={margin}
+          onChange={handleMarginChange}
+          suffix="%"
+          step={0.1}
+          locked={marginLocked}
+          onToggleLock={toggleMarginLock}
+          hint={marginLocked ? "Margin dikunci — klik 'Terkunci' untuk ubah" : undefined}
+        />
+        <div className="rounded-lg bg-secondary/40 border border-border p-3 text-sm space-y-1">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Fee efektif total</span>
+            <span className="text-danger font-semibold">{formatPct(totalCostPct)}</span>
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Komisi {formatPct(eff)} + WD {formatPct(effectiveWdPct)}</span>
+          </div>
+        </div>
+      </div>
 
-        {/* Arah 1 */}
-        <TabsContent value="arah1" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-4">
-              <NumInput label="Harga Beli / unit (IDR)" value={buyPrice1} onChange={setBuyPrice1} prefix="Rp" hint="Harga dari supplier/Telegram" />
-              {marginInput}
-              <div className="rounded-lg bg-secondary/40 border border-border p-3 text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fee efektif total</span>
-                  <span className="text-danger font-semibold">{formatPct(totalCostPct)}</span>
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Komisi {formatPct(eff)} + WD {formatPct(effectiveWdPct)}</span>
-                </div>
+      {/* Right: Results */}
+      <div className="space-y-4">
+        {!hasBuy && !hasSell ? (
+          <div className="rounded-xl border border-border bg-secondary/20 p-4 flex items-center justify-center h-24 text-sm text-muted-foreground">
+            Isi harga beli dan/atau jual untuk melihat hasil
+          </div>
+        ) : hasBuy && hasSell ? (
+          <>
+            <div className="rounded-xl border border-gold/30 bg-gold/5 p-4 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Net diterima / unit</span>
+                <span className="font-medium text-foreground tabular-nums">{breakdown ? formatRupiah(breakdown.netReceivePerUnit) : "—"}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Harga beli</span>
+                <span className="text-muted-foreground tabular-nums">-{formatRupiah(buyPrice)}</span>
+              </div>
+              <div className="border-t border-gold/20 pt-2 flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Keuntungan / unit</span>
+                <span className={cn("text-2xl font-bold tabular-nums", breakdown && breakdown.profitPerUnit > 0 ? "text-success" : "text-danger")}>
+                  {breakdown ? formatRupiah(breakdown.profitPerUnit) : "—"}
+                </span>
               </div>
             </div>
-
-            <div className="space-y-4">
-              {minSell > 0 ? (
-                <>
-                  {/* Result card — clean display */}
-                  <div className="rounded-xl border border-gold/30 bg-gold/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Harga Minimal Post G2G</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">per unit</p>
-                      </div>
-                      <p className="text-2xl font-semibold text-gold tabular-nums">{formatRupiah(minSell)}</p>
-                    </div>
+            <FeeBreakdown eff={eff} wdPct={effectiveWdPct} sellPrice={sellPrice} />
+            {breakdown && <StatusBadge profit={breakdown.profitPerUnit} pct={breakdown.profitPct} />}
+          </>
+        ) : hasBuy ? (
+          minSell > 0 ? (
+            <>
+              <div className="rounded-xl border border-gold/30 bg-gold/5 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Harga Minimal Post G2G</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">per unit</p>
                   </div>
-                  {breakdown1 && (
-                    <>
-                      <FeeBreakdown eff={eff} wdPct={effectiveWdPct} sellPrice={minSell} />
-                      <StatusBadge profit={breakdown1.profitPerUnit} pct={breakdown1.profitPct} />
-                    </>
-                  )}
-                </>
-              ) : (
-                <div className="rounded-xl border border-border bg-secondary/20 p-4 flex items-center justify-center h-24 text-sm text-muted-foreground">
-                  Isi harga beli untuk melihat rekomendasi
-                </div>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* Arah 2 */}
-        <TabsContent value="arah2" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-4">
-              <NumInput label="Harga Jual di G2G (IDR)" value={sellPrice2} onChange={setSellPrice2} prefix="Rp" hint="Harga posting kamu atau harga kompetitor" />
-              {marginInput}
-              <div className="rounded-lg bg-secondary/40 border border-border p-3 text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fee efektif total</span>
-                  <span className="text-danger font-semibold">{formatPct(totalCostPct)}</span>
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Komisi {formatPct(eff)} + WD {formatPct(effectiveWdPct)}</span>
+                  <p className="text-2xl font-semibold text-gold tabular-nums">{formatRupiah(minSell)}</p>
                 </div>
               </div>
-            </div>
-
-            <div className="space-y-4">
-              {result2 ? (
+              {fromMinSell && (
                 <>
-                  <div className="rounded-xl border border-gold/30 bg-gold/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Maks Harga Beli dari Farmer</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">per unit</p>
-                      </div>
-                      <p className="text-2xl font-semibold text-gold tabular-nums">{formatRupiah(result2.maxBuyPrice)}</p>
-                    </div>
-                  </div>
-                  <FeeBreakdown eff={eff} wdPct={effectiveWdPct} sellPrice={sellPrice2} />
-                  <div className="rounded-lg bg-secondary/40 border border-border p-3 text-sm space-y-1.5">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Net diterima per unit</span>
-                      <span className="text-foreground font-medium tabular-nums">{formatRupiah(result2.netReceivePerUnit)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Maks beli farmer</span>
-                      <span className="text-gold font-medium tabular-nums">{formatRupiah(result2.maxBuyPrice)}</span>
-                    </div>
-                  </div>
-                  <StatusBadge profit={result2.profitPerUnit} pct={result2.profitPct} />
+                  <FeeBreakdown eff={eff} wdPct={effectiveWdPct} sellPrice={minSell} />
+                  <StatusBadge profit={fromMinSell.profitPerUnit} pct={fromMinSell.profitPct} />
                 </>
-              ) : (
-                <div className="rounded-xl border border-border bg-secondary/20 p-4 flex items-center justify-center h-24 text-sm text-muted-foreground">
-                  Isi harga jual untuk melihat rekomendasi
-                </div>
               )}
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-
+            </>
+          ) : null
+        ) : (
+          fromSellOnly ? (
+            <>
+              <div className="rounded-xl border border-gold/30 bg-gold/5 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Maks Harga Beli dari Farmer</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">per unit</p>
+                  </div>
+                  <p className="text-2xl font-semibold text-gold tabular-nums">{formatRupiah(fromSellOnly.maxBuyPrice)}</p>
+                </div>
+              </div>
+              <FeeBreakdown eff={eff} wdPct={effectiveWdPct} sellPrice={sellPrice} />
+              <div className="rounded-lg bg-secondary/40 border border-border p-3 text-sm space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Net diterima per unit</span>
+                  <span className="text-foreground font-medium tabular-nums">{formatRupiah(fromSellOnly.netReceivePerUnit)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Maks beli farmer</span>
+                  <span className="text-gold font-medium tabular-nums">{formatRupiah(fromSellOnly.maxBuyPrice)}</span>
+                </div>
+              </div>
+              <StatusBadge profit={fromSellOnly.profitPerUnit} pct={fromSellOnly.profitPct} />
+            </>
+          ) : null
+        )}
+      </div>
     </div>
   )
 }
@@ -321,26 +303,33 @@ function G2GCalc({ fee }: { fee: G2GFeeParams }) {
 
 function DirectCalc() {
   const [payFee, setPayFee] = useState(0)
+  const [buyPrice, setBuyPrice] = useState(0)
+  const [sellPrice, setSellPrice] = useState(0)
+  const [margin, setMargin] = useState(0.6)
 
-  // Arah 1
-  const [buyPrice1, setBuyPrice1] = useState(0)
-  const [margin1, setMargin1] = useState(0.6)
-  const result1 = useMemo(
-    () => buyPrice1 > 0 ? calcDirectFromBuy(buyPrice1, margin1, payFee) : null,
-    [buyPrice1, margin1, payFee]
-  )
+  const hasBuy = buyPrice > 0
+  const hasSell = sellPrice > 0
 
-  // Arah 2
-  const [offer2, setOffer2] = useState(0)
-  const [margin2, setMargin2] = useState(0.6)
-  const result2 = useMemo(
-    () => offer2 > 0 ? calcDirectFromOffer(offer2, margin2, payFee) : null,
-    [offer2, margin2, payFee]
+  const fromBuy = useMemo(
+    () => hasBuy && !hasSell ? calcDirectFromBuy(buyPrice, margin, payFee) : null,
+    [buyPrice, sellPrice, margin, payFee, hasBuy, hasSell]
   )
+  const fromSell = useMemo(
+    () => hasSell && !hasBuy ? calcDirectFromOffer(sellPrice, margin, payFee) : null,
+    [buyPrice, sellPrice, margin, payFee, hasSell, hasBuy]
+  )
+  const bothResult = useMemo(() => {
+    if (!hasBuy || !hasSell) return null
+    const feeFrac = payFee / 100
+    const paymentFeeAmount = sellPrice * feeFrac
+    const netReceivePerUnit = sellPrice - paymentFeeAmount
+    const profitPerUnit = netReceivePerUnit - buyPrice
+    const profitPct = sellPrice > 0 ? profitPerUnit / sellPrice * 100 : 0
+    return { paymentFeeAmount, netReceivePerUnit, profitPerUnit, profitPct }
+  }, [buyPrice, sellPrice, payFee, hasBuy, hasSell])
 
   return (
     <div className="space-y-4">
-      {/* Fee input — shared for both directions */}
       <Card className="bg-card border-border">
         <CardContent className="pt-4 pb-4">
           <div className="flex items-end gap-4">
@@ -361,116 +350,111 @@ function DirectCalc() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="arah1">
-        <TabsList className="bg-card border border-border w-full">
-          <TabsTrigger value="arah1" className="flex-1 data-[state=active]:bg-gold data-[state=active]:text-background">
-            Dari Harga Beli → Min Tawar Buyer
-          </TabsTrigger>
-          <TabsTrigger value="arah2" className="flex-1 data-[state=active]:bg-gold data-[state=active]:text-background">
-            Dari Penawaran Buyer → Max Beli Farmer
-          </TabsTrigger>
-        </TabsList>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Left: Inputs */}
+        <div className="space-y-4">
+          <NumInput label="Harga Beli / unit (IDR)" value={buyPrice} onChange={setBuyPrice} prefix="Rp" hint="Harga dari farmer (opsional)" />
+          <NumInput label="Harga Jual / Tawar Buyer (IDR)" value={sellPrice} onChange={setSellPrice} prefix="Rp" hint="Harga kamu tawarkan atau penawaran buyer (opsional)" />
+          <NumInput label="Target Margin (%)" value={margin} onChange={setMargin} suffix="%" step={0.1} />
+        </div>
 
-        {/* Arah 1 */}
-        <TabsContent value="arah1" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-4">
-              <NumInput label="Harga Beli / unit (IDR)" value={buyPrice1} onChange={setBuyPrice1} prefix="Rp" />
-              <NumInput label="Target Margin (%)" value={margin1} onChange={setMargin1} suffix="%" step={0.1} />
+        {/* Right: Results */}
+        <div className="space-y-4">
+          {!hasBuy && !hasSell ? (
+            <div className="rounded-xl border border-border bg-secondary/20 p-4 flex items-center justify-center h-24 text-sm text-muted-foreground">
+              Isi harga beli dan/atau jual untuk melihat hasil
             </div>
-            <div className="space-y-4">
-              {result1 ? (
-                <>
-                  <div className="rounded-xl border border-success/30 bg-success/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Harga Minimal ke Buyer</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">per unit</p>
-                      </div>
-                      <p className="text-2xl font-semibold text-success tabular-nums">{formatRupiah(result1.minSellPrice)}</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg bg-secondary/40 border border-border p-3 text-sm space-y-1.5">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Harga beli</span>
-                      <span className="text-foreground">{formatRupiah(buyPrice1)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Harga jual min</span>
-                      <span className="text-foreground">{formatRupiah(result1.minSellPrice)}</span>
-                    </div>
-                    {payFee > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Fee payment ({payFee}%)</span>
-                        <span className="text-danger">-{formatRupiah(result1.paymentFeeAmount)}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <StatusBadge profit={result1.profitPerUnit} pct={result1.profitPct} />
-                </>
-              ) : (
-                <div className="rounded-xl border border-border bg-secondary/20 p-4 flex items-center justify-center h-24 text-sm text-muted-foreground">
-                  Isi harga beli untuk melihat rekomendasi
+          ) : hasBuy && hasSell ? (
+            <>
+              <div className="rounded-xl border border-success/30 bg-success/5 p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Net diterima / unit</span>
+                  <span className="font-medium text-foreground tabular-nums">{formatRupiah(bothResult!.netReceivePerUnit)}</span>
                 </div>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* Arah 2 */}
-        <TabsContent value="arah2" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-4">
-              <NumInput label="Harga Tawar Buyer (IDR)" value={offer2} onChange={setOffer2} prefix="Rp" />
-              <NumInput label="Target Margin (%)" value={margin2} onChange={setMargin2} suffix="%" step={0.1} />
-            </div>
-            <div className="space-y-4">
-              {result2 ? (
-                <>
-                  <div className="rounded-xl border border-success/30 bg-success/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Maks Harga Beli dari Farmer</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">per unit</p>
-                      </div>
-                      <p className="text-2xl font-semibold text-success tabular-nums">{formatRupiah(result2.maxBuyPrice)}</p>
-                    </div>
+                {payFee > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Fee payment ({payFee}%)</span>
+                    <span className="text-danger tabular-nums">-{formatRupiah(bothResult!.paymentFeeAmount)}</span>
                   </div>
-
-                  <div className="rounded-lg bg-secondary/40 border border-border p-3 text-sm space-y-1.5">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Harga tawar buyer</span>
-                      <span className="text-foreground">{formatRupiah(offer2)}</span>
-                    </div>
-                    {payFee > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Fee payment ({payFee}%)</span>
-                        <span className="text-danger">-{formatRupiah(result2.paymentFeeAmount)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Net diterima</span>
-                      <span className="text-foreground">{formatRupiah(result2.netReceivePerUnit)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Maks beli farmer</span>
-                      <span className="text-gold font-medium">{formatRupiah(result2.maxBuyPrice)}</span>
-                    </div>
-                  </div>
-
-                  <StatusBadge profit={result2.profitPerUnit} pct={result2.profitPct} />
-                </>
-              ) : (
-                <div className="rounded-xl border border-border bg-secondary/20 p-4 flex items-center justify-center h-24 text-sm text-muted-foreground">
-                  Isi harga tawar buyer untuk melihat rekomendasi
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Harga beli</span>
+                  <span className="text-muted-foreground tabular-nums">-{formatRupiah(buyPrice)}</span>
                 </div>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+                <div className="border-t border-success/20 pt-2 flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Keuntungan / unit</span>
+                  <span className={cn("text-2xl font-bold tabular-nums", bothResult!.profitPerUnit > 0 ? "text-success" : "text-danger")}>
+                    {formatRupiah(bothResult!.profitPerUnit)}
+                  </span>
+                </div>
+              </div>
+              <StatusBadge profit={bothResult!.profitPerUnit} pct={bothResult!.profitPct} />
+            </>
+          ) : hasBuy ? (
+            fromBuy ? (
+              <>
+                <div className="rounded-xl border border-success/30 bg-success/5 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Harga Minimal ke Buyer</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">per unit</p>
+                    </div>
+                    <p className="text-2xl font-semibold text-success tabular-nums">{formatRupiah(fromBuy.minSellPrice)}</p>
+                  </div>
+                </div>
+                <div className="rounded-lg bg-secondary/40 border border-border p-3 text-sm space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Harga beli</span>
+                    <span className="text-foreground">{formatRupiah(buyPrice)}</span>
+                  </div>
+                  {payFee > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Fee payment ({payFee}%)</span>
+                      <span className="text-danger">-{formatRupiah(fromBuy.paymentFeeAmount)}</span>
+                    </div>
+                  )}
+                </div>
+                <StatusBadge profit={fromBuy.profitPerUnit} pct={fromBuy.profitPct} />
+              </>
+            ) : null
+          ) : (
+            fromSell ? (
+              <>
+                <div className="rounded-xl border border-success/30 bg-success/5 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Maks Harga Beli dari Farmer</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">per unit</p>
+                    </div>
+                    <p className="text-2xl font-semibold text-success tabular-nums">{formatRupiah(fromSell.maxBuyPrice)}</p>
+                  </div>
+                </div>
+                <div className="rounded-lg bg-secondary/40 border border-border p-3 text-sm space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Harga tawar buyer</span>
+                    <span className="text-foreground">{formatRupiah(sellPrice)}</span>
+                  </div>
+                  {payFee > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Fee payment ({payFee}%)</span>
+                      <span className="text-danger">-{formatRupiah(fromSell.paymentFeeAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Net diterima</span>
+                    <span className="text-foreground">{formatRupiah(fromSell.netReceivePerUnit)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Maks beli farmer</span>
+                    <span className="text-success font-medium">{formatRupiah(fromSell.maxBuyPrice)}</span>
+                  </div>
+                </div>
+                <StatusBadge profit={fromSell.profitPerUnit} pct={fromSell.profitPct} />
+              </>
+            ) : null
+          )}
+        </div>
+      </div>
     </div>
   )
 }

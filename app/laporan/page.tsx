@@ -34,10 +34,14 @@ function getMonthOptions() {
   return options
 }
 
+function getWeekOfMonth(dateStr: string): number {
+  return Math.ceil(new Date(dateStr).getDate() / 7)
+}
+
 function getWeeklyBreakdown(transactions: Transaction[]) {
   const byWeek: Record<number, { week: number; profit: number; count: number; g2g: number; direct: number }> = {}
   for (const tx of transactions) {
-    const w = tx.week_number
+    const w = tx.week_number > 0 ? tx.week_number : getWeekOfMonth(tx.transaction_date)
     if (!byWeek[w]) byWeek[w] = { week: w, profit: 0, count: 0, g2g: 0, direct: 0 }
     byWeek[w].profit += tx.profit_idr ?? 0
     byWeek[w].count += 1
@@ -47,12 +51,15 @@ function getWeeklyBreakdown(transactions: Transaction[]) {
   return Object.values(byWeek).sort((a, b) => a.week - b.week)
 }
 
+interface PSMember { full_name: string; share_pct: number }
+
 export default function LaporanPage() {
   const months = getMonthOptions()
   const [selectedMonth, setSelectedMonth] = useState(months[0].value)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [investors, setInvestors] = useState<Profile[]>([])
   const [opsPct, setOpsPct] = useState(50)
+  const [psMembers, setPsMembers] = useState<PSMember[]>([])
   const [loading, setLoading] = useState(true)
 
   const [totalExpenses, setTotalExpenses] = useState(0)
@@ -66,16 +73,21 @@ export default function LaporanPage() {
       const lastDay = new Date(year, month, 0).getDate()
       const to = `${year}-${String(month).padStart(2, "0")}-${lastDay}`
 
-      const [{ data: txData }, { data: investorData }, { data: psConfig }, { data: expData }] = await Promise.all([
+      const [{ data: txData }, { data: investorData }, { data: memberData }, { data: expData }] = await Promise.all([
         supabase.from("transactions").select("*").eq("status", "completed").gte("transaction_date", from).lte("transaction_date", to),
         supabase.from("profiles").select("*").eq("role", "investor").eq("is_active", true),
-        supabase.from("profit_sharing_config").select("ops_percentage").single(),
+        supabase.from("profit_sharing_members").select("full_name, share_pct").eq("is_active", true),
         supabase.from("operational_expenses").select("amount_idr").gte("expense_date", from).lte("expense_date", to),
       ])
 
       setTransactions((txData as Transaction[]) ?? [])
       setInvestors((investorData as Profile[]) ?? [])
-      if (psConfig) setOpsPct(psConfig.ops_percentage)
+
+      const members = (memberData ?? []) as PSMember[]
+      setPsMembers(members)
+      const totalInvestorPct = members.reduce((s, m) => s + m.share_pct, 0)
+      setOpsPct(Math.max(0, 100 - totalInvestorPct))
+
       setTotalExpenses(((expData ?? []) as { amount_idr: number }[]).reduce((s, e) => s + e.amount_idr, 0))
       setLoading(false)
     }
@@ -85,6 +97,11 @@ export default function LaporanPage() {
   const totalProfit = useMemo(() => transactions.reduce((s, t) => s + (t.profit_idr ?? 0), 0), [transactions])
   const sharing = useMemo(() => calcProfitSharing(totalProfit, totalExpenses, opsPct, investors.length), [totalProfit, totalExpenses, opsPct, investors.length])
   const weeklyData = useMemo(() => getWeeklyBreakdown(transactions), [transactions])
+
+  const memberShareMap = useMemo(
+    () => Object.fromEntries(psMembers.map(m => [m.full_name, m.share_pct])),
+    [psMembers]
+  )
 
   const investorPct = 100 - opsPct
   const donutAngle = sharing.investorTotal / (totalProfit || 1) * 360
@@ -184,7 +201,7 @@ export default function LaporanPage() {
                     <CardTitle className="text-base text-foreground">
                       Bagian per Investor
                       <span className="text-xs text-muted-foreground font-normal ml-2">
-                        ({investors.length} investor aktif · split rata)
+                        ({psMembers.length > 0 ? psMembers.length : investors.length} investor aktif{psMembers.length === 0 ? " · split rata" : ""})
                       </span>
                     </CardTitle>
                   </CardHeader>
@@ -193,17 +210,27 @@ export default function LaporanPage() {
                       <p className="text-sm text-muted-foreground py-4">Belum ada investor aktif.</p>
                     ) : (
                       <div className="space-y-3">
-                        {investors.map((inv) => (
+                        {investors.map((inv) => {
+                          const memberPct = memberShareMap[inv.full_name]
+                          const amount = memberPct != null
+                            ? sharing.profitAfterExpenses * memberPct / 100
+                            : sharing.perInvestor
+                          const pctLabel = memberPct != null ? ` (${memberPct}%)` : ""
+                          return (
                           <div key={inv.id} className="flex items-center justify-between rounded-lg border border-border bg-background/50 px-4 py-3">
                             <div className="flex items-center gap-3">
                               <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-semibold">
                                 {inv.full_name.charAt(0).toUpperCase()}
                               </div>
-                              <span className="font-medium text-foreground text-sm">{inv.full_name}</span>
+                              <div>
+                                <span className="font-medium text-foreground text-sm">{inv.full_name}</span>
+                                {pctLabel && <p className="text-xs text-muted-foreground">{pctLabel} dari profit bersih</p>}
+                              </div>
                             </div>
-                            <span className="font-bold text-success">{formatRupiah(sharing.perInvestor)}</span>
+                            <span className="font-bold text-success">{formatRupiah(amount)}</span>
                           </div>
-                        ))}
+                          )
+                        })}
                         {totalProfit === 0 && (
                           <p className="text-xs text-muted-foreground text-center pt-2">Belum ada profit di periode ini</p>
                         )}
