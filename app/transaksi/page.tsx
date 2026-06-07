@@ -489,6 +489,7 @@ export default function TransaksiPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-border hover:bg-transparent">
+                      <TableHead className="text-muted-foreground w-10">#</TableHead>
                       <TableHead className="text-muted-foreground">Tanggal</TableHead>
                       <TableHead className="text-muted-foreground">Channel</TableHead>
                       <TableHead className="text-muted-foreground text-right">Gold</TableHead>
@@ -503,7 +504,7 @@ export default function TransaksiPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((tx) => {
+                    {filtered.map((tx, idx) => {
                       const modal = tx.buy_price_idr * tx.gold_amount
                       const grossSell = tx.sell_price_idr * tx.gold_amount
                       const txBuyerVat = tx.buyer_vat_pct ?? 0
@@ -517,6 +518,7 @@ export default function TransaksiPage() {
                         : tx.payment_fee_pct ? `${tx.payment_fee_pct}%` : "—"
                       return (
                         <TableRow key={tx.id} className="border-border hover:bg-background/50">
+                          <TableCell className="text-muted-foreground text-sm w-10">{idx + 1}</TableCell>
                           <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                             {new Date(tx.transaction_date).toLocaleDateString("id-ID")}
                           </TableCell>

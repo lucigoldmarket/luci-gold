@@ -84,11 +84,7 @@ export function DashboardStats() {
   }, [])
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <StatCard title="Saldo Kas" value={saldoData ? compact(saldoData.saldo) : "—"}
-        sub={saldoData ? `Deposit ${compact(saldoData.totalDeposits + saldoData.initialSaldo)} · WD +${compact(saldoData.wdReceived)}` : undefined}
-        subType={saldoData ? (saldoData.saldo >= 0 ? "positive" : "negative") : "neutral"}
-        icon={<Wallet className="h-4 w-4" />} />
+    <div className="grid gap-4 md:grid-cols-3">
       <StatCard title="Float G2G" value={saldoData ? compact(saldoData.floatG2GPending + saldoData.g2gBalance) : "—"}
         sub={saldoData ? `Pending ${compact(saldoData.floatG2GPending)} · Siap tarik ${compact(saldoData.g2gBalance)}` : undefined}
         subType="neutral" icon={<Clock className="h-4 w-4" />} />

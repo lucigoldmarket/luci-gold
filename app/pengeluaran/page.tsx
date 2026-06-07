@@ -222,6 +222,7 @@ export default function PengeluaranPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-border hover:bg-transparent">
+                        <TableHead className="text-muted-foreground w-10">#</TableHead>
                         <TableHead className="text-muted-foreground">Tanggal</TableHead>
                         <TableHead className="text-muted-foreground">Kategori</TableHead>
                         <TableHead className="text-muted-foreground">Deskripsi</TableHead>
@@ -231,8 +232,9 @@ export default function PengeluaranPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filtered.map((e) => (
+                      {filtered.map((e, idx) => (
                         <TableRow key={e.id} className="border-border hover:bg-background/50">
+                          <TableCell className="text-muted-foreground text-sm w-10">{idx + 1}</TableCell>
                           <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                             {new Date(e.expense_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
                           </TableCell>
