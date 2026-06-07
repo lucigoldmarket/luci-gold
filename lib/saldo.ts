@@ -10,6 +10,7 @@ export interface SaldoResult {
   directCompletedProfits: number
   wdReceived: number
   g2gUnwithdrawnBuyCosts: number
+  g2gWithdrawnBuyCosts: number
   totalExpenses: number
 }
 
@@ -63,11 +64,18 @@ export async function computeSaldo(): Promise<SaldoResult> {
     .filter(t => t.channel === "g2g" && t.status === "completed" && !t.withdrawal_id)
     .reduce((s, t) => s + t.buy_price_idr * t.gold_amount, 0)
 
+  // G2G completed dengan withdrawal_id: modal sudah dipakai beli gold, harus dikurangkan
+  // agar tidak double count dengan wdReceived (net_received sudah include modal kembali)
+  const g2gWithdrawnBuyCosts = txs
+    .filter(t => t.channel === "g2g" && t.status === "completed" && !!t.withdrawal_id)
+    .reduce((s, t) => s + t.buy_price_idr * t.gold_amount, 0)
+
   const saldo = initialSaldo + totalDeposits
     + directCompletedProfits
     + wdReceived
     - pendingBuyCosts
     - g2gUnwithdrawnBuyCosts
+    - g2gWithdrawnBuyCosts
     - totalExpenses
 
   function calcNetPerTx(t: typeof txs[0]) {
@@ -89,7 +97,8 @@ export async function computeSaldo(): Promise<SaldoResult> {
   return {
     saldo, floatG2GPending, g2gBalance,
     initialSaldo, totalDeposits,
-    pendingBuyCosts, directCompletedProfits, wdReceived, g2gUnwithdrawnBuyCosts,
+    pendingBuyCosts, directCompletedProfits, wdReceived,
+    g2gUnwithdrawnBuyCosts, g2gWithdrawnBuyCosts,
     totalExpenses,
   }
 }
