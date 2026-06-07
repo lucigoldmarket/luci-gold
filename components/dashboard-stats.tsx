@@ -63,21 +63,17 @@ export function DashboardStats() {
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const now = new Date()
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
-      const today = now.toISOString().slice(0, 10)
-      const [{ data: monthTx }, saldo] = await Promise.all([
-        supabase.from("transactions").select("profit_idr, channel, buy_price_idr, gold_amount, transaction_date")
-          .gte("transaction_date", monthStart).eq("status", "completed"),
+      const [{ data: allTx }, saldo] = await Promise.all([
+        supabase.from("transactions").select("profit_idr, channel, buy_price_idr, gold_amount")
+          .eq("status", "completed"),
         computeSaldo(),
       ])
-      const txs = monthTx ?? []
+      const txs = allTx ?? []
       const profitThisMonth = txs.reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
-      const profitToday = txs.filter((t: any) => t.transaction_date === today).reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
       const g2gProfitMonth = txs.filter((t: any) => t.channel === "g2g").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
       const directProfitMonth = txs.filter((t: any) => t.channel === "direct").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
       const margins = txs.map((t: any) => { const b = t.buy_price_idr * t.gold_amount; return b > 0 ? ((t.profit_idr ?? 0) / b) * 100 : 0 })
-      setMonth({ profitThisMonth, profitToday, txThisMonth: txs.length, g2gProfitMonth, directProfitMonth, avgMarginMonth: margins.length > 0 ? margins.reduce((a: number, b: number) => a + b, 0) / margins.length : 0 })
+      setMonth({ profitThisMonth, profitToday: 0, txThisMonth: txs.length, g2gProfitMonth, directProfitMonth, avgMarginMonth: margins.length > 0 ? margins.reduce((a: number, b: number) => a + b, 0) / margins.length : 0 })
       setSaldoData(saldo)
     }
     load()
@@ -88,8 +84,8 @@ export function DashboardStats() {
       <StatCard title="Float G2G" value={saldoData ? compact(saldoData.floatG2GPending + saldoData.g2gBalance) : "—"}
         sub={saldoData ? `Pending ${compact(saldoData.floatG2GPending)} · Siap tarik ${compact(saldoData.g2gBalance)}` : undefined}
         subType="neutral" icon={<Clock className="h-4 w-4" />} />
-      <StatCard title="Profit Bulan Ini" value={month ? compact(month.profitThisMonth) : "—"}
-        sub={month ? `${month.txThisMonth} transaksi` : undefined}
+      <StatCard title="Total Profit" value={month ? compact(month.profitThisMonth) : "—"}
+        sub={month ? `${month.txThisMonth} transaksi selesai` : undefined}
         subType={month && month.profitThisMonth > 0 ? "positive" : "neutral"}
         icon={<TrendingUp className="h-4 w-4" />} />
       <StatCard title="Avg. Margin" value={month ? `${month.avgMarginMonth.toFixed(2)}%` : "—"}
@@ -106,10 +102,9 @@ export function HeroStats() {
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
       const [{ data }, saldo] = await Promise.all([
         supabase.from("transactions").select("profit_idr, channel, buy_price_idr, gold_amount")
-          .gte("transaction_date", monthStart).eq("status", "completed"),
+          .eq("status", "completed"),
         computeSaldo(),
       ])
       const txs = data ?? []
@@ -159,7 +154,7 @@ export function HeroStats() {
             </p>
           </div>
           <div className="space-y-0.5">
-            <p className="text-xs text-muted-foreground">Profit Bulan Ini</p>
+            <p className="text-xs text-muted-foreground">Total Profit</p>
             <p className="text-base font-semibold text-foreground tabular-nums">
               {month ? fmt(month.profitThisMonth) : "—"}
             </p>
