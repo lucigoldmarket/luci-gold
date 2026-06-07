@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Search, ArrowUpRight, ArrowDownLeft, CheckCircle, AlertTriangle, Loader2, Pencil, Trash2, LineChart, ChevronDown } from "lucide-react"
+import { Plus, Search, ArrowUpRight, ArrowDownLeft, CheckCircle, AlertTriangle, Loader2, Pencil, Trash2, LineChart, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react"
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts"
@@ -290,6 +290,8 @@ export default function TransaksiPage() {
   const [search, setSearch] = useState("")
   const [fee, setFee] = useState<G2GFeeParams>(DEFAULT_FEE)
   const [showChart, setShowChart] = useState(false)
+  const [sortCol, setSortCol] = useState<string>("transaction_date")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
 
   async function fetchData() {
     const supabase = createClient()
@@ -310,6 +312,35 @@ export default function TransaksiPage() {
     if (search && !tx.notes?.toLowerCase().includes(search.toLowerCase()) && !tx.game_name.toLowerCase().includes(search.toLowerCase())) return false
     return true
   }), [transactions, filterChannel, filterStatus, search])
+
+  function toggleSort(col: string) {
+    if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    else { setSortCol(col); setSortDir("desc") }
+  }
+
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      let aVal: number | string = 0
+      let bVal: number | string = 0
+      const modal = (tx: typeof a) => tx.buy_price_idr * tx.gold_amount
+      const grossSell = (tx: typeof a) => tx.sell_price_idr * tx.gold_amount
+      switch (sortCol) {
+        case "transaction_date": aVal = a.transaction_date; bVal = b.transaction_date; break
+        case "channel": aVal = a.channel; bVal = b.channel; break
+        case "gold_amount": aVal = a.gold_amount; bVal = b.gold_amount; break
+        case "buy_price_idr": aVal = a.buy_price_idr; bVal = b.buy_price_idr; break
+        case "modal": aVal = modal(a); bVal = modal(b); break
+        case "sell_price_idr": aVal = a.sell_price_idr; bVal = b.sell_price_idr; break
+        case "gross_sell": aVal = grossSell(a); bVal = grossSell(b); break
+        case "profit_idr": aVal = a.profit_idr ?? -Infinity; bVal = b.profit_idr ?? -Infinity; break
+        case "status": aVal = a.status; bVal = b.status; break
+        default: aVal = a.transaction_date; bVal = b.transaction_date
+      }
+      if (aVal < bVal) return sortDir === "asc" ? -1 : 1
+      if (aVal > bVal) return sortDir === "asc" ? 1 : -1
+      return 0
+    })
+  }, [filtered, sortCol, sortDir])
 
   const chartData = useMemo(() => {
     const byDate: Record<string, { g2g: number; direct: number }> = {}
@@ -498,21 +529,42 @@ export default function TransaksiPage() {
                   <TableHeader>
                     <TableRow className="border-border hover:bg-transparent">
                       <TableHead className="text-muted-foreground w-10">#</TableHead>
-                      <TableHead className="text-muted-foreground">Tanggal</TableHead>
-                      <TableHead className="text-muted-foreground">Channel</TableHead>
-                      <TableHead className="text-muted-foreground text-right">Gold</TableHead>
-                      <TableHead className="text-muted-foreground text-right">Beli/unit</TableHead>
-                      <TableHead className="text-muted-foreground text-right">Modal</TableHead>
-                      <TableHead className="text-muted-foreground text-right">Jual/unit</TableHead>
-                      <TableHead className="text-muted-foreground text-right">Gross Sell</TableHead>
-                      <TableHead className="text-muted-foreground text-right">Fee</TableHead>
-                      <TableHead className="text-muted-foreground text-right">Profit</TableHead>
-                      <TableHead className="text-muted-foreground">Status</TableHead>
+                      {([
+                        { key: "transaction_date", label: "Tanggal", align: "left" },
+                        { key: "channel", label: "Channel", align: "left" },
+                        { key: "gold_amount", label: "Gold", align: "right" },
+                        { key: "buy_price_idr", label: "Beli/unit", align: "right" },
+                        { key: "modal", label: "Modal", align: "right" },
+                        { key: "sell_price_idr", label: "Jual/unit", align: "right" },
+                        { key: "gross_sell", label: "Gross Sell", align: "right" },
+                        { key: null, label: "Fee", align: "right" },
+                        { key: "profit_idr", label: "Profit", align: "right" },
+                        { key: "status", label: "Status", align: "left" },
+                      ] as { key: string | null; label: string; align: string }[]).map(({ key, label, align }) => (
+                        <TableHead key={label}
+                          className={cn("text-muted-foreground", align === "right" && "text-right", key && "cursor-pointer select-none hover:text-foreground transition-colors")}
+                          onClick={key ? () => toggleSort(key) : undefined}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            {align === "right" && key && (
+                              sortCol === key
+                                ? sortDir === "asc" ? <ChevronUp className="h-3 w-3 text-gold" /> : <ChevronDown className="h-3 w-3 text-gold" />
+                                : <ChevronsUpDown className="h-3 w-3 opacity-30" />
+                            )}
+                            <span className={sortCol === key ? "text-gold" : ""}>{label}</span>
+                            {align !== "right" && key && (
+                              sortCol === key
+                                ? sortDir === "asc" ? <ChevronUp className="h-3 w-3 text-gold" /> : <ChevronDown className="h-3 w-3 text-gold" />
+                                : <ChevronsUpDown className="h-3 w-3 opacity-30" />
+                            )}
+                          </span>
+                        </TableHead>
+                      ))}
                       {isAdmin && <TableHead className="text-muted-foreground w-16"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((tx, idx) => {
+                    {sorted.map((tx, idx) => {
                       const modal = tx.buy_price_idr * tx.gold_amount
                       const grossSell = tx.sell_price_idr * tx.gold_amount
                       const txBuyerVat = tx.buyer_vat_pct ?? 0
