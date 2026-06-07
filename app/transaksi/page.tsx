@@ -163,10 +163,18 @@ function TransactionForm({
                 <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-card border-border">
                   <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="completed" disabled={channel === "g2g"}>
+                    Completed{channel === "g2g" ? " (via Withdrawal)" : ""}
+                  </SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
+              {channel === "g2g" && (
+                <p className="text-xs text-muted-foreground">
+                  Status Selesai untuk G2G hanya bisa diatur melalui{" "}
+                  <a href="/withdrawal" className="text-gold hover:underline">Withdrawal</a>
+                </p>
+              )}
             </div>
             {channel === "g2g" && (
               <div className="col-span-2 space-y-1.5">
