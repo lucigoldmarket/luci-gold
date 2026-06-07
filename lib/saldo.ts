@@ -6,7 +6,7 @@ export interface SaldoResult {
   g2gBalance: number
   initialSaldo: number
   totalDeposits: number
-  pendingG2GBuyCosts: number
+  pendingBuyCosts: number
   totalExpenses: number
 }
 
@@ -39,12 +39,12 @@ export async function computeSaldo(): Promise<SaldoResult> {
     withdrawal_id: string | null; buyer_vat_pct: number | null
   }[]
 
-  // Saldo = deposit - pending G2G buy costs - total expenses
-  const pendingG2GBuyCosts = txs
-    .filter(t => t.channel === "g2g" && t.status === "pending")
+  // Saldo = deposit - semua pending buy costs (G2G + Direct) - total expenses
+  const pendingBuyCosts = txs
+    .filter(t => t.status === "pending")
     .reduce((s, t) => s + t.buy_price_idr * t.gold_amount, 0)
 
-  const saldo = initialSaldo + totalDeposits - pendingG2GBuyCosts - totalExpenses
+  const saldo = initialSaldo + totalDeposits - pendingBuyCosts - totalExpenses
 
   function calcNetPerTx(t: typeof txs[0]) {
     const buyerVat = t.buyer_vat_pct ?? 0
@@ -62,5 +62,5 @@ export async function computeSaldo(): Promise<SaldoResult> {
     .filter(t => t.channel === "g2g" && t.status === "completed" && !t.withdrawal_id)
     .reduce((s, t) => s + calcNetPerTx(t), 0)
 
-  return { saldo, floatG2GPending, g2gBalance, initialSaldo, totalDeposits, pendingG2GBuyCosts, totalExpenses }
+  return { saldo, floatG2GPending, g2gBalance, initialSaldo, totalDeposits, pendingBuyCosts, totalExpenses }
 }
