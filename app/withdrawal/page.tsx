@@ -186,7 +186,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
             <span>Transaksi G2G Belum di-Withdraw</span>
             {transactions.length > 0 && (
               <button onClick={toggleAll} className="text-xs text-gold hover:underline font-normal">
-                {selected.size === transactions.length ? "Hapus semua" : "Pilih semua"}
+                {selected.size === transactions.length ? "Batal semua" : "Pilih semua"}
               </button>
             )}
           </CardTitle>
@@ -204,7 +204,24 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="w-10"></TableHead>
+                  <TableHead className="w-10">
+                    <button
+                      onClick={toggleAll}
+                      className={cn(
+                        "h-4 w-4 rounded border-2 flex items-center justify-center transition-colors",
+                        selected.size === transactions.length && transactions.length > 0
+                          ? "bg-gold border-gold"
+                          : selected.size > 0
+                            ? "bg-gold/40 border-gold/60"
+                            : "border-border hover:border-gold/60"
+                      )}
+                      title={selected.size === transactions.length ? "Batal semua" : "Pilih semua"}
+                    >
+                      {selected.size > 0 && (
+                        <CheckCircle className="h-3 w-3 text-background" />
+                      )}
+                    </button>
+                  </TableHead>
                   <TableHead className="text-muted-foreground">Tanggal</TableHead>
                   <TableHead className="text-muted-foreground">Status</TableHead>
                   <TableHead className="text-muted-foreground text-right">Gold</TableHead>
