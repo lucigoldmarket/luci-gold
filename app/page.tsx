@@ -1,6 +1,6 @@
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
-import { DashboardStats, HeroStats } from "@/components/dashboard-stats"
+import { DashboardStats, HeroStats, SaldoBreakdown } from "@/components/dashboard-stats"
 import { RecentTransactions } from "@/components/recent-transactions"
 import { InvestorSummary } from "@/components/investor-summary"
 import { ProfitChart } from "@/components/profit-chart"
@@ -16,6 +16,11 @@ export default function DashboardPage() {
           {/* Hero */}
           <section className="mb-6">
             <HeroStats />
+          </section>
+
+          {/* Saldo Breakdown */}
+          <section className="mb-6">
+            <SaldoBreakdown />
           </section>
 
           {/* 4 Stat Cards */}

@@ -6,12 +6,22 @@ export interface SaldoResult {
   g2gBalance: number
   initialSaldo: number
   totalDeposits: number
+  countDeposits: number
   pendingBuyCosts: number
+  pendingG2GBuyCosts: number
+  pendingDirectBuyCosts: number
+  countPendingG2G: number
+  countPendingDirect: number
   directCompletedProfits: number
+  countDirectCompleted: number
   wdReceived: number
+  countWD: number
   g2gUnwithdrawnBuyCosts: number
+  countG2GUnwithdrawn: number
   g2gWithdrawnBuyCosts: number
+  countG2GWithdrawn: number
   totalExpenses: number
+  countExpenses: number
 }
 
 export async function computeSaldo(): Promise<SaldoResult> {
@@ -35,8 +45,10 @@ export async function computeSaldo(): Promise<SaldoResult> {
   const effWdFrac = wdFeePct * (1 + vatPct / 100) / 100
 
   const initialSaldo = (psConfig as any)?.initial_saldo ?? 0
-  const totalDeposits = (deposits ?? []).reduce((s: number, d: any) => s + d.amount_idr, 0)
-  const totalExpenses = (expData ?? []).reduce((s: number, e: any) => s + e.amount_idr, 0)
+  const depositList = deposits ?? []
+  const expList = expData ?? []
+  const totalDeposits = depositList.reduce((s: number, d: any) => s + d.amount_idr, 0)
+  const totalExpenses = expList.reduce((s: number, e: any) => s + e.amount_idr, 0)
 
   const txs = (txData ?? []) as {
     channel: string; status: string; profit_idr: number | null
@@ -46,29 +58,22 @@ export async function computeSaldo(): Promise<SaldoResult> {
 
   const wds = (wdData ?? []) as { amount_received_idr: number }[]
 
-  // Semua pending (G2G + Direct): modal sedang dipakai, mengurangi saldo
-  const pendingBuyCosts = txs
-    .filter(t => t.status === "pending")
-    .reduce((s, t) => s + t.buy_price_idr * t.gold_amount, 0)
+  const pendingG2G = txs.filter(t => t.status === "pending" && t.channel === "g2g")
+  const pendingDirect = txs.filter(t => t.status === "pending" && t.channel === "direct")
+  const pendingG2GBuyCosts = pendingG2G.reduce((s, t) => s + t.buy_price_idr * t.gold_amount, 0)
+  const pendingDirectBuyCosts = pendingDirect.reduce((s, t) => s + t.buy_price_idr * t.gold_amount, 0)
+  const pendingBuyCosts = pendingG2GBuyCosts + pendingDirectBuyCosts
 
-  // Direct completed: modal kembali + profit (profit_idr sudah net dari payment fee)
-  const directCompletedProfits = txs
-    .filter(t => t.channel === "direct" && t.status === "completed")
-    .reduce((s, t) => s + (t.profit_idr ?? 0), 0)
+  const directCompletedList = txs.filter(t => t.channel === "direct" && t.status === "completed")
+  const directCompletedProfits = directCompletedList.reduce((s, t) => s + (t.profit_idr ?? 0), 0)
 
-  // G2G WD submitted: amount_received_idr sudah net setelah WD fee dipotong sistem withdrawal
   const wdReceived = wds.reduce((s, w) => s + w.amount_received_idr, 0)
 
-  // G2G completed tanpa withdrawal_id: modal masih di G2G platform, belum kembali ke saldo
-  const g2gUnwithdrawnBuyCosts = txs
-    .filter(t => t.channel === "g2g" && t.status === "completed" && !t.withdrawal_id)
-    .reduce((s, t) => s + t.buy_price_idr * t.gold_amount, 0)
+  const g2gUnwithdrawnList = txs.filter(t => t.channel === "g2g" && t.status === "completed" && !t.withdrawal_id)
+  const g2gUnwithdrawnBuyCosts = g2gUnwithdrawnList.reduce((s, t) => s + t.buy_price_idr * t.gold_amount, 0)
 
-  // G2G completed dengan withdrawal_id: modal sudah dipakai beli gold, harus dikurangkan
-  // agar tidak double count dengan wdReceived (net_received sudah include modal kembali)
-  const g2gWithdrawnBuyCosts = txs
-    .filter(t => t.channel === "g2g" && t.status === "completed" && !!t.withdrawal_id)
-    .reduce((s, t) => s + t.buy_price_idr * t.gold_amount, 0)
+  const g2gWithdrawnList = txs.filter(t => t.channel === "g2g" && t.status === "completed" && !!t.withdrawal_id)
+  const g2gWithdrawnBuyCosts = g2gWithdrawnList.reduce((s, t) => s + t.buy_price_idr * t.gold_amount, 0)
 
   const saldo = initialSaldo + totalDeposits
     + directCompletedProfits
@@ -96,9 +101,14 @@ export async function computeSaldo(): Promise<SaldoResult> {
 
   return {
     saldo, floatG2GPending, g2gBalance,
-    initialSaldo, totalDeposits,
-    pendingBuyCosts, directCompletedProfits, wdReceived,
-    g2gUnwithdrawnBuyCosts, g2gWithdrawnBuyCosts,
-    totalExpenses,
+    initialSaldo,
+    totalDeposits, countDeposits: depositList.length,
+    pendingBuyCosts, pendingG2GBuyCosts, pendingDirectBuyCosts,
+    countPendingG2G: pendingG2G.length, countPendingDirect: pendingDirect.length,
+    directCompletedProfits, countDirectCompleted: directCompletedList.length,
+    wdReceived, countWD: wds.length,
+    g2gUnwithdrawnBuyCosts, countG2GUnwithdrawn: g2gUnwithdrawnList.length,
+    g2gWithdrawnBuyCosts, countG2GWithdrawn: g2gWithdrawnList.length,
+    totalExpenses, countExpenses: expList.length,
   }
 }
