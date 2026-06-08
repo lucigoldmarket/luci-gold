@@ -54,7 +54,7 @@ interface FeeConfig {
   withdrawalFeeFixed: number  // IDR fixed fee (e.g. 19999)
 }
 
-const DEFAULT_FEE: FeeConfig = { commissionPct: 7.99, vatPct: 11, withdrawalFeePct: 1.99, withdrawalFeeFixed: 19999 }
+const DEFAULT_FEE: FeeConfig = { commissionPct: 7.99, vatPct: 11, withdrawalFeePct: 1.99, withdrawalFeeFixed: 16863 }
 
 // ─── Tab: Catat Withdrawal ────────────────────────────────────────────────────
 
@@ -69,6 +69,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
   const [useManual, setUseManual] = useState(false)
   const [notes, setNotes] = useState("")
   const [feeConfig, setFeeConfig] = useState<FeeConfig>(DEFAULT_FEE)
+  const [actualNetReceived, setActualNetReceived] = useState<number | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -105,7 +106,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
           commissionPct: fc.commission_pct ?? 7.99,
           vatPct: fc.vat_pct ?? 11,
           withdrawalFeePct: fc.withdrawal_fee_pct ?? 1.99,
-          withdrawalFeeFixed: fc.withdrawal_fee_fixed ?? 19999,
+          withdrawalFeeFixed: fc.withdrawal_fee_fixed ?? 16863,
         })
       }
 
@@ -152,12 +153,15 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
     const supabase = createClient()
 
     // 1. Insert withdrawal record
+    // Gunakan net aktual dari email G2G jika diisi, fallback ke estimasi
+    const finalNetReceived = actualNetReceived ?? Math.round(netReceived)
+
     const { data: wd, error: wdErr } = await supabase.from("withdrawals").insert({
       withdrawal_date: withdrawDate,
       amount_idr: Math.round(withdrawAmount),
-      withdrawal_fee_pct: feeConfig.withdrawalFeePct,   // store base % (e.g. 1.99)
-      withdrawal_fee_fixed_idr: Math.round(baseFeeFixed + vatOnFee + (baseFeeFixed * feeConfig.vatPct / 100)),
-      amount_received_idr: Math.round(netReceived),
+      withdrawal_fee_pct: feeConfig.withdrawalFeePct,
+      withdrawal_fee_fixed_idr: Math.round(withdrawAmount - finalNetReceived),
+      amount_received_idr: finalNetReceived,
       notes: notes || null,
     }).select("id").single()
 
@@ -180,6 +184,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
     setNotes("")
     setManualAmount(0)
     setUseManual(false)
+    setActualNetReceived(null)
     onDone()
   }
 
@@ -339,9 +344,13 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
               )}
             </div>
 
-            {/* Fee breakdown */}
+            {/* Fee breakdown - simulasi perkiraan */}
             {withdrawAmount > 0 && (
               <div className="rounded-lg bg-secondary/40 border border-border p-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Simulasi Perkiraan</span>
+                  <span className="text-xs text-muted-foreground/60">±selisih kecil dari G2G</span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Nominal withdrawal</span>
                   <span className="text-foreground">{formatRupiah(Math.round(withdrawAmount))}</span>
@@ -353,17 +362,55 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
                   <span className="text-danger">-{formatRupiah(Math.round(baseFeeTotal))}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    PPN {feeConfig.vatPct}% dari fee
-                  </span>
+                  <span className="text-muted-foreground">PPN {feeConfig.vatPct}% dari fee</span>
                   <span className="text-danger">-{formatRupiah(Math.round(vatOnFee))}</span>
                 </div>
-                <div className="flex justify-between border-t border-border pt-2 font-medium">
-                  <span className="text-foreground">Net diterima</span>
-                  <span className={netReceived > 0 ? "text-success" : "text-danger"}>
-                    {formatRupiah(Math.round(netReceived))}
-                  </span>
+                <div className="flex justify-between border-t border-border pt-2 font-medium text-muted-foreground">
+                  <span>Estimasi net</span>
+                  <span>{formatRupiah(Math.round(netReceived))}</span>
                 </div>
+              </div>
+            )}
+
+            {/* Input net aktual dari email G2G */}
+            {withdrawAmount > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium text-foreground">
+                    Net Aktual Diterima (IDR)
+                  </Label>
+                  {actualNetReceived !== null && (
+                    <button
+                      onClick={() => setActualNetReceived(null)}
+                      className="text-xs text-muted-foreground hover:text-danger"
+                    >
+                      × Reset ke estimasi
+                    </button>
+                  )}
+                </div>
+                <Input
+                  type="number"
+                  value={actualNetReceived ?? ""}
+                  onChange={(e) => setActualNetReceived(e.target.value ? Number(e.target.value) : null)}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                  className={`bg-background border-border text-foreground ${actualNetReceived !== null ? "border-success ring-1 ring-success/30" : ""}`}
+                  placeholder={`Estimasi: ${formatRupiah(Math.round(netReceived))} — isi dari email G2G`}
+                />
+                {actualNetReceived !== null && (
+                  <div className="flex justify-between text-xs pt-0.5">
+                    <span className="text-muted-foreground">Selisih dari estimasi</span>
+                    <span className={actualNetReceived - Math.round(netReceived) >= 0 ? "text-success" : "text-danger"}>
+                      {actualNetReceived - Math.round(netReceived) >= 0 ? "+" : ""}
+                      {formatRupiah(actualNetReceived - Math.round(netReceived))}
+                    </span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Yang disimpan: <span className={`font-medium ${actualNetReceived !== null ? "text-success" : "text-muted-foreground"}`}>
+                    {formatRupiah(actualNetReceived ?? Math.round(netReceived))}
+                  </span>
+                  {actualNetReceived === null && " (estimasi)"}
+                </p>
               </div>
             )}
 
@@ -387,7 +434,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
 
             <Button
               onClick={handleSubmit}
-              disabled={saving || withdrawAmount <= 0 || netReceived <= 0}
+              disabled={saving || withdrawAmount <= 0 || (actualNetReceived ?? netReceived) <= 0}
               className="w-full bg-gold hover:bg-gold/90 text-background"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowDownToLine className="h-4 w-4 mr-2" />}
