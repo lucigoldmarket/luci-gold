@@ -51,9 +51,10 @@ interface FeeConfig {
   commissionPct: number
   vatPct: number
   withdrawalFeePct: number
+  withdrawalFeeFixed: number  // IDR fixed fee (e.g. 19999)
 }
 
-const DEFAULT_FEE: FeeConfig = { commissionPct: 7.99, vatPct: 11, withdrawalFeePct: 2.48 }
+const DEFAULT_FEE: FeeConfig = { commissionPct: 7.99, vatPct: 11, withdrawalFeePct: 1.99, withdrawalFeeFixed: 19999 }
 
 // ─── Tab: Catat Withdrawal ────────────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
           .is("withdrawal_id", null)
           .order("transaction_date", { ascending: false }),
         supabase.from("fee_config")
-          .select("commission_pct, vat_pct, withdrawal_fee_pct")
+          .select("commission_pct, vat_pct, withdrawal_fee_pct, withdrawal_fee_fixed")
           .eq("is_active", true)
           .single(),
       ])
@@ -103,7 +104,8 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
         setFeeConfig({
           commissionPct: fc.commission_pct ?? 7.99,
           vatPct: fc.vat_pct ?? 11,
-          withdrawalFeePct: fc.withdrawal_fee_pct ?? 2.48,
+          withdrawalFeePct: fc.withdrawal_fee_pct ?? 1.99,
+          withdrawalFeeFixed: fc.withdrawal_fee_fixed ?? 19999,
         })
       }
 
@@ -111,11 +113,6 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
     }
     load()
   }, [])
-
-  // Effective rates (buyer country VAT applies to commission only, not WD disbursement)
-  const vatMult = 1 + feeConfig.vatPct / 100
-  const effectiveWdPctNum = feeConfig.withdrawalFeePct * vatMult  // e.g. 2.7528 (%)
-  const effectiveWdFrac = effectiveWdPctNum / 100
 
   const selectedTxs = transactions.filter((t) => selected.has(t.id))
 
@@ -130,8 +127,17 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
   )
 
   const withdrawAmount = useManual ? manualAmount : estimatedBalance
-  const totalFee = withdrawAmount * effectiveWdFrac
+
+  // G2G fee formula: (pct% of amount + fixed IDR 19.999) + PPN 11% on that subtotal
+  const baseFeeFromPct = withdrawAmount * (feeConfig.withdrawalFeePct / 100)
+  const baseFeeFixed = feeConfig.withdrawalFeeFixed
+  const baseFeeTotal = baseFeeFromPct + baseFeeFixed
+  const vatOnFee = baseFeeTotal * (feeConfig.vatPct / 100)
+  const totalFee = baseFeeTotal + vatOnFee
   const netReceived = withdrawAmount - totalFee
+
+  // For display label only
+  const effectiveWdPctNum = feeConfig.withdrawalFeePct * (1 + feeConfig.vatPct / 100)
 
   function toggleAll() {
     if (selected.size === transactions.length) setSelected(new Set())
@@ -149,8 +155,8 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
     const { data: wd, error: wdErr } = await supabase.from("withdrawals").insert({
       withdrawal_date: withdrawDate,
       amount_idr: Math.round(withdrawAmount),
-      withdrawal_fee_pct: effectiveWdPctNum,  // store effective % (e.g. 2.7528)
-      withdrawal_fee_fixed_idr: 0,
+      withdrawal_fee_pct: feeConfig.withdrawalFeePct,   // store base % (e.g. 1.99)
+      withdrawal_fee_fixed_idr: Math.round(baseFeeFixed + vatOnFee + (baseFeeFixed * feeConfig.vatPct / 100)),
       amount_received_idr: Math.round(netReceived),
       notes: notes || null,
     }).select("id").single()
@@ -342,9 +348,15 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
-                    WD fee {feeConfig.withdrawalFeePct}% × PPN {feeConfig.vatPct}% = {effectiveWdPctNum.toFixed(4)}%
+                    WD fee {feeConfig.withdrawalFeePct}% + Rp {feeConfig.withdrawalFeeFixed.toLocaleString("id-ID")}
                   </span>
-                  <span className="text-danger">-{formatRupiah(Math.round(totalFee))}</span>
+                  <span className="text-danger">-{formatRupiah(Math.round(baseFeeTotal))}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    PPN {feeConfig.vatPct}% dari fee
+                  </span>
+                  <span className="text-danger">-{formatRupiah(Math.round(vatOnFee))}</span>
                 </div>
                 <div className="flex justify-between border-t border-border pt-2 font-medium">
                   <span className="text-foreground">Net diterima</span>
