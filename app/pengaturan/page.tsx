@@ -906,11 +906,7 @@ export default function PengaturanPage() {
                   <Users className="h-4 w-4 mr-2" /> Pengguna
                 </TabsTrigger>
               )}
-              {isAdmin && (
-                <TabsTrigger value="koreksi" className="data-[state=active]:bg-gold data-[state=active]:text-background">
-                  <SlidersHorizontal className="h-4 w-4 mr-2" /> Koreksi Saldo
-                </TabsTrigger>
-              )}
+
               <TabsTrigger value="profil" className="data-[state=active]:bg-gold data-[state=active]:text-background">
                 <User className="h-4 w-4 mr-2" /> Profil Saya
               </TabsTrigger>
@@ -927,11 +923,7 @@ export default function PengaturanPage() {
                 <UsersTab />
               </TabsContent>
             )}
-            {isAdmin && (
-              <TabsContent value="koreksi">
-                <KoreksiSaldoTab />
-              </TabsContent>
-            )}
+
             <TabsContent value="profil">
               <ProfilTab />
             </TabsContent>
