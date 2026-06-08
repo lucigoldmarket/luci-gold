@@ -23,9 +23,13 @@ function compact(value: number): string {
   return fmt(value)
 }
 
-interface MonthStats {
-  profitThisMonth: number; profitToday: number; txThisMonth: number
-  g2gProfitMonth: number; directProfitMonth: number; avgMarginMonth: number
+interface ProfitStats {
+  totalProfit: number
+  txCount: number
+  g2gProfit: number
+  directProfit: number
+  // Avg margin = total profit / total modal (buy_price * gold_amount) semua completed
+  avgMarginPct: number
 }
 
 function StatCard({ title, value, sub, subType = "neutral", icon }: {
@@ -57,7 +61,7 @@ function StatCard({ title, value, sub, subType = "neutral", icon }: {
 }
 
 export function DashboardStats() {
-  const [month, setMonth] = useState<MonthStats | null>(null)
+  const [profit, setProfit] = useState<ProfitStats | null>(null)
   const [saldoData, setSaldoData] = useState<SaldoResult | null>(null)
 
   useEffect(() => {
@@ -69,11 +73,17 @@ export function DashboardStats() {
         computeSaldo(),
       ])
       const txs = allTx ?? []
-      const profitThisMonth = txs.reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
-      const g2gProfitMonth = txs.filter((t: any) => t.channel === "g2g").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
-      const directProfitMonth = txs.filter((t: any) => t.channel === "direct").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
-      const margins = txs.map((t: any) => { const b = t.buy_price_idr * t.gold_amount; return b > 0 ? ((t.profit_idr ?? 0) / b) * 100 : 0 })
-      setMonth({ profitThisMonth, profitToday: 0, txThisMonth: txs.length, g2gProfitMonth, directProfitMonth, avgMarginMonth: margins.length > 0 ? margins.reduce((a: number, b: number) => a + b, 0) / margins.length : 0 })
+
+      const totalProfit = txs.reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
+      const g2gProfit = txs.filter((t: any) => t.channel === "g2g").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
+      const directProfit = txs.filter((t: any) => t.channel === "direct").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
+
+      // Avg margin = total profit / total modal keseluruhan * 100
+      // Modal per transaksi = buy_price_idr * gold_amount
+      const totalModal = txs.reduce((s: number, t: any) => s + (t.buy_price_idr * t.gold_amount), 0)
+      const avgMarginPct = totalModal > 0 ? (totalProfit / totalModal) * 100 : 0
+
+      setProfit({ totalProfit, txCount: txs.length, g2gProfit, directProfit, avgMarginPct })
       setSaldoData(saldo)
     }
     load()
@@ -81,22 +91,40 @@ export function DashboardStats() {
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
-      <StatCard title="Float G2G" value={saldoData ? compact(saldoData.floatG2GPending + saldoData.g2gBalance) : "—"}
-        sub={saldoData ? `Pending ${compact(saldoData.floatG2GPending)} · Siap tarik ${compact(saldoData.g2gBalance)}` : undefined}
-        subType="neutral" icon={<Clock className="h-4 w-4" />} />
-      <StatCard title="Total Profit" value={month ? compact(month.profitThisMonth) : "—"}
-        sub={month ? `${month.txThisMonth} transaksi selesai` : undefined}
-        subType={month && month.profitThisMonth > 0 ? "positive" : "neutral"}
-        icon={<TrendingUp className="h-4 w-4" />} />
-      <StatCard title="Avg. Margin" value={month ? `${month.avgMarginMonth.toFixed(2)}%` : "—"}
-        sub={month ? `G2G ${compact(month.g2gProfitMonth)} · Direct ${compact(month.directProfitMonth)}` : undefined}
-        subType="neutral" icon={<Activity className="h-4 w-4" />} />
+      {/* Float G2G: total modal yang sedang pending di G2G (uang yang sedang dipakai) */}
+      <StatCard
+        title="Float G2G"
+        value={saldoData ? compact(saldoData.pendingG2GBuyCosts) : "—"}
+        sub={saldoData
+          ? `${saldoData.countPendingG2G} transaksi pending · Siap tarik ${compact(saldoData.g2gBalance)}`
+          : undefined}
+        subType="neutral"
+        icon={<Clock className="h-4 w-4" />}
+      />
+
+      {/* Total Profit: jumlah profit_idr dari semua transaksi completed */}
+      <StatCard
+        title="Total Profit"
+        value={profit ? compact(profit.totalProfit) : "—"}
+        sub={profit ? `${profit.txCount} transaksi selesai` : undefined}
+        subType={profit && profit.totalProfit > 0 ? "positive" : "neutral"}
+        icon={<TrendingUp className="h-4 w-4" />}
+      />
+
+      {/* Avg Margin: total profit / total modal semua transaksi completed */}
+      <StatCard
+        title="Avg. Margin"
+        value={profit ? `${profit.avgMarginPct.toFixed(2)}%` : "—"}
+        sub={profit ? `G2G ${compact(profit.g2gProfit)} · Direct ${compact(profit.directProfit)}` : undefined}
+        subType="neutral"
+        icon={<Activity className="h-4 w-4" />}
+      />
     </div>
   )
 }
 
 export function HeroStats() {
-  const [month, setMonth] = useState<MonthStats | null>(null)
+  const [profit, setProfit] = useState<ProfitStats | null>(null)
   const [saldoData, setSaldoData] = useState<SaldoResult | null>(null)
 
   useEffect(() => {
@@ -108,9 +136,14 @@ export function HeroStats() {
         computeSaldo(),
       ])
       const txs = data ?? []
-      const profitThisMonth = txs.reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
-      const margins = txs.map((t: any) => { const b = t.buy_price_idr * t.gold_amount; return b > 0 ? ((t.profit_idr ?? 0) / b) * 100 : 0 })
-      setMonth({ profitThisMonth, profitToday: 0, txThisMonth: txs.length, g2gProfitMonth: txs.filter((t: any) => t.channel === "g2g").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0), directProfitMonth: txs.filter((t: any) => t.channel === "direct").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0), avgMarginMonth: margins.length > 0 ? margins.reduce((a: number, b: number) => a + b, 0) / margins.length : 0 })
+
+      const totalProfit = txs.reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
+      const g2gProfit = txs.filter((t: any) => t.channel === "g2g").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
+      const directProfit = txs.filter((t: any) => t.channel === "direct").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
+      const totalModal = txs.reduce((s: number, t: any) => s + (t.buy_price_idr * t.gold_amount), 0)
+      const avgMarginPct = totalModal > 0 ? (totalProfit / totalModal) * 100 : 0
+
+      setProfit({ totalProfit, txCount: txs.length, g2gProfit, directProfit, avgMarginPct })
       setSaldoData(saldo)
     }
     load()
@@ -156,13 +189,13 @@ export function HeroStats() {
           <div className="space-y-0.5">
             <p className="text-xs text-muted-foreground">Total Profit</p>
             <p className="text-base font-semibold text-foreground tabular-nums">
-              {month ? fmt(month.profitThisMonth) : "—"}
+              {profit ? fmt(profit.totalProfit) : "—"}
             </p>
           </div>
           <div className="space-y-0.5">
             <p className="text-xs text-muted-foreground">Avg. Margin</p>
             <p className="text-base font-semibold text-foreground tabular-nums">
-              {month ? `${month.avgMarginMonth.toFixed(2)}%` : "—"}
+              {profit ? `${profit.avgMarginPct.toFixed(2)}%` : "—"}
             </p>
           </div>
         </div>

@@ -26,6 +26,10 @@ function formatRupiah(value: number): string {
 
 const DAY_LABELS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
 
+// Warna: G2G = merah (identik G2G), Direct = biru (identik Discord)
+const COLOR_G2G = "#ef4444"
+const COLOR_DIRECT = "#3b82f6"
+
 type Mode = "7d" | "30d" | "bulan"
 
 export function ProfitChart() {
@@ -175,12 +179,12 @@ export function ProfitChart() {
             <AreaChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="g2gGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#d4a017" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#d4a017" stopOpacity={0.03} />
+                  <stop offset="5%" stopColor={COLOR_G2G} stopOpacity={0.35} />
+                  <stop offset="95%" stopColor={COLOR_G2G} stopOpacity={0.03} />
                 </linearGradient>
                 <linearGradient id="directGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0.03} />
+                  <stop offset="5%" stopColor={COLOR_DIRECT} stopOpacity={0.35} />
+                  <stop offset="95%" stopColor={COLOR_DIRECT} stopOpacity={0.03} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -208,16 +212,16 @@ export function ProfitChart() {
                       <p className="text-muted-foreground font-medium">{label}</p>
                       {g2g > 0 && (
                         <div className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-gold inline-block" />
+                          <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: COLOR_G2G }} />
                           <span className="text-muted-foreground">G2G</span>
-                          <span className="font-semibold text-gold ml-auto tabular-nums">{formatRupiah(g2g)}</span>
+                          <span className="font-semibold ml-auto tabular-nums" style={{ color: COLOR_G2G }}>{formatRupiah(g2g)}</span>
                         </div>
                       )}
                       {direct > 0 && (
                         <div className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-success inline-block" />
+                          <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: COLOR_DIRECT }} />
                           <span className="text-muted-foreground">Direct</span>
-                          <span className="font-semibold text-success ml-auto tabular-nums">{formatRupiah(direct)}</span>
+                          <span className="font-semibold ml-auto tabular-nums" style={{ color: COLOR_DIRECT }}>{formatRupiah(direct)}</span>
                         </div>
                       )}
                       {g2g > 0 && direct > 0 && (
@@ -234,21 +238,21 @@ export function ProfitChart() {
                 type="monotone"
                 dataKey="g2g"
                 stackId="a"
-                stroke="#d4a017"
+                stroke={COLOR_G2G}
                 strokeWidth={2}
                 fill="url(#g2gGrad)"
                 dot={false}
-                activeDot={{ r: 4, fill: "#d4a017", strokeWidth: 0 }}
+                activeDot={{ r: 4, fill: COLOR_G2G, strokeWidth: 0 }}
               />
               <Area
                 type="monotone"
                 dataKey="direct"
                 stackId="a"
-                stroke="#22c55e"
+                stroke={COLOR_DIRECT}
                 strokeWidth={2}
                 fill="url(#directGrad)"
                 dot={false}
-                activeDot={{ r: 4, fill: "#22c55e", strokeWidth: 0 }}
+                activeDot={{ r: 4, fill: COLOR_DIRECT, strokeWidth: 0 }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -257,11 +261,11 @@ export function ProfitChart() {
         {hasData && (
           <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <div className="h-2.5 w-2.5 rounded-sm bg-gold" />
+              <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: COLOR_G2G }} />
               G2G
             </div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <div className="h-2.5 w-2.5 rounded-sm bg-success" />
+              <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: COLOR_DIRECT }} />
               Direct
             </div>
           </div>

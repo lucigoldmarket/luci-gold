@@ -428,12 +428,12 @@ export default function TransaksiPage() {
                       <AreaChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
                         <defs>
                           <linearGradient id="txG2gGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#d4a017" stopOpacity={0.35} />
-                            <stop offset="95%" stopColor="#d4a017" stopOpacity={0.03} />
+                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.35} />
+                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0.03} />
                           </linearGradient>
                           <linearGradient id="txDirectGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.35} />
-                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0.03} />
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.03} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -466,18 +466,18 @@ export default function TransaksiPage() {
                                 <p className="text-muted-foreground font-medium">{label}</p>
                                 {g2g > 0 && (
                                   <div className="flex items-center gap-2">
-                                    <span className="h-2 w-2 rounded-full bg-gold inline-block" />
+                                    <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: "#ef4444" }} />
                                     <span className="text-muted-foreground">G2G</span>
-                                    <span className="font-semibold text-gold ml-auto tabular-nums">
+                                    <span className="font-semibold ml-auto tabular-nums" style={{ color: "#ef4444" }}>
                                       {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(g2g)}
                                     </span>
                                   </div>
                                 )}
                                 {direct > 0 && (
                                   <div className="flex items-center gap-2">
-                                    <span className="h-2 w-2 rounded-full bg-success inline-block" />
+                                    <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: "#3b82f6" }} />
                                     <span className="text-muted-foreground">Direct</span>
-                                    <span className="font-semibold text-success ml-auto tabular-nums">
+                                    <span className="font-semibold ml-auto tabular-nums" style={{ color: "#3b82f6" }}>
                                       {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(direct)}
                                     </span>
                                   </div>
@@ -494,16 +494,16 @@ export default function TransaksiPage() {
                             )
                           }}
                         />
-                        <Area type="monotone" dataKey="g2g" stackId="a" stroke="#d4a017" strokeWidth={2} fill="url(#txG2gGrad)" dot={false} activeDot={{ r: 4, fill: "#d4a017", strokeWidth: 0 }} />
-                        <Area type="monotone" dataKey="direct" stackId="a" stroke="#22c55e" strokeWidth={2} fill="url(#txDirectGrad)" dot={false} activeDot={{ r: 4, fill: "#22c55e", strokeWidth: 0 }} />
+                        <Area type="monotone" dataKey="g2g" stackId="a" stroke="#ef4444" strokeWidth={2} fill="url(#txG2gGrad)" dot={false} activeDot={{ r: 4, fill: "#ef4444", strokeWidth: 0 }} />
+                        <Area type="monotone" dataKey="direct" stackId="a" stroke="#3b82f6" strokeWidth={2} fill="url(#txDirectGrad)" dot={false} activeDot={{ r: 4, fill: "#3b82f6", strokeWidth: 0 }} />
                       </AreaChart>
                     </ResponsiveContainer>
                     <div className="flex items-center gap-4 mt-2 pt-2 border-t border-border">
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <div className="h-2.5 w-2.5 rounded-sm bg-gold" /> G2G
+                        <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#ef4444" }} /> G2G
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <div className="h-2.5 w-2.5 rounded-sm bg-success" /> Direct
+                        <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#3b82f6" }} /> Direct
                       </div>
                       <span className="text-xs text-muted-foreground ml-auto">Hanya transaksi completed</span>
                     </div>
@@ -588,7 +588,7 @@ export default function TransaksiPage() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={tx.channel === "g2g" ? "border-gold/50 text-gold bg-gold/10" : "border-success/50 text-success bg-success/10"}>
+                            <Badge variant="outline" className={tx.channel === "g2g" ? "border-red-500/50 text-red-400 bg-red-500/10" : "border-blue-500/50 text-blue-400 bg-blue-500/10"}>
                               {tx.channel === "g2g" ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownLeft className="h-3 w-3 mr-1" />}
                               {tx.channel.toUpperCase()}
                             </Badge>
