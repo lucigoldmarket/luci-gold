@@ -580,7 +580,12 @@ export default function TransaksiPage() {
                         <TableRow key={tx.id} className="border-border hover:bg-background/50">
                           <TableCell className="text-muted-foreground text-sm w-10">{idx + 1}</TableCell>
                           <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                            {new Date(tx.transaction_date).toLocaleDateString("id-ID")}
+                            <div>{new Date(tx.transaction_date).toLocaleDateString("id-ID")}</div>
+                            {tx.notes && (
+                              <div className="text-xs text-muted-foreground/60 truncate max-w-[120px]" title={tx.notes}>
+                                {tx.notes}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={tx.channel === "g2g" ? "border-gold/50 text-gold bg-gold/10" : "border-success/50 text-success bg-success/10"}>

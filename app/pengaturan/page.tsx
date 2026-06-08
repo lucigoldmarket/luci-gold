@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   Save, Loader2, Database, Users, PieChart, CheckCircle, AlertTriangle,
-  Pencil, Trash2, Copy, RefreshCw, User, KeyRound, Lock,
+  Pencil, Trash2, Copy, RefreshCw, User, KeyRound, Lock, SlidersHorizontal, PlusCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -501,6 +501,247 @@ function UsersTab() {
   )
 }
 
+// ─── Tab: Koreksi Saldo (admin only) ─────────────────────────────────────────
+
+interface AdjustmentRow {
+  id: string
+  created_at: string
+  amount_idr: number
+  type: "credit" | "debit"
+  reason: string
+  notes: string | null
+}
+
+function KoreksiSaldoTab() {
+  const [data, setData] = useState<AdjustmentRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+
+  // Form state
+  const [amount, setAmount] = useState("")
+  const [type, setType] = useState<"credit" | "debit">("credit")
+  const [reason, setReason] = useState("")
+  const [notes, setNotes] = useState("")
+
+  async function load() {
+    setLoading(true)
+    const supabase = createClient()
+    const { data: rows, error } = await supabase
+      .from("balance_adjustments")
+      .select("*")
+      .order("created_at", { ascending: false })
+    if (!error) setData((rows as AdjustmentRow[]) ?? [])
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function handleAdd() {
+    const amt = parseInt(amount.replace(/\D/g, ""))
+    if (!amt || amt <= 0) { setMsg({ type: "err", text: "Nominal harus lebih dari 0." }); return }
+    if (!reason.trim()) { setMsg({ type: "err", text: "Keterangan wajib diisi." }); return }
+    setSaving(true); setMsg(null)
+    const supabase = createClient()
+    const { error } = await supabase.from("balance_adjustments").insert({
+      amount_idr: amt,
+      type,
+      reason: reason.trim(),
+      notes: notes.trim() || null,
+    })
+    setSaving(false)
+    if (error) { setMsg({ type: "err", text: error.message }); return }
+    setMsg({ type: "ok", text: `Koreksi ${type === "credit" ? "tambah" : "kurang"} saldo ${formatRupiah(amt)} berhasil dicatat.` })
+    setAmount(""); setReason(""); setNotes(""); setType("credit")
+    load()
+  }
+
+  async function handleDelete(id: string) {
+    const supabase = createClient()
+    await supabase.from("balance_adjustments").delete().eq("id", id)
+    setDeleteId(null); load()
+  }
+
+  const totalCredit = data.filter(d => d.type === "credit").reduce((s, d) => s + d.amount_idr, 0)
+  const totalDebit = data.filter(d => d.type === "debit").reduce((s, d) => s + d.amount_idr, 0)
+  const netAdjustment = totalCredit - totalDebit
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      {/* Info banner */}
+      <div className="rounded-lg bg-gold/5 border border-gold/20 p-4 text-sm text-muted-foreground space-y-1">
+        <p className="text-gold font-medium flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4" /> Koreksi Saldo
+        </p>
+        <p>Gunakan fitur ini untuk memperbaiki <span className="text-foreground font-medium">selisih saldo</span> tanpa mengubah total modal atau transaksi yang sudah ada.</p>
+        <p className="text-xs">Contoh: selisih dari pembulatan fee G2G, koreksi pencatatan, atau penyesuaian manual lainnya.</p>
+      </div>
+
+      {/* Summary */}
+      {data.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Total Koreksi +", value: totalCredit, color: "text-success" },
+            { label: "Total Koreksi −", value: totalDebit, color: "text-danger" },
+            { label: "Net Adjustment", value: netAdjustment, color: netAdjustment >= 0 ? "text-success" : "text-danger" },
+          ].map((c) => (
+            <Card key={c.label} className="bg-card border-border">
+              <CardContent className="pt-3 pb-3">
+                <p className="text-xs text-muted-foreground">{c.label}</p>
+                <p className={cn("text-base font-semibold tabular-nums", c.color)}>
+                  {netAdjustment < 0 && c.label === "Net Adjustment" ? "-" : ""}{formatRupiah(Math.abs(c.value))}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Form tambah koreksi */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-foreground text-base flex items-center gap-2">
+            <PlusCircle className="h-4 w-4 text-gold" /> Tambah Koreksi
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Tipe: tambah / kurang */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setType("credit")}
+              className={cn(
+                "rounded-lg border-2 py-3 text-sm font-medium transition-colors",
+                type === "credit"
+                  ? "border-success bg-success/10 text-success"
+                  : "border-border text-muted-foreground hover:border-success/40"
+              )}
+            >
+              + Tambah Saldo
+            </button>
+            <button
+              onClick={() => setType("debit")}
+              className={cn(
+                "rounded-lg border-2 py-3 text-sm font-medium transition-colors",
+                type === "debit"
+                  ? "border-danger bg-danger/10 text-danger"
+                  : "border-border text-muted-foreground hover:border-danger/40"
+              )}
+            >
+              − Kurangi Saldo
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-muted-foreground text-sm">Nominal (IDR)</Label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
+              className="bg-background border-border text-foreground"
+              placeholder="Contoh: 3500"
+            />
+            {amount && parseInt(amount) > 0 && (
+              <p className="text-xs text-muted-foreground">{formatRupiah(parseInt(amount))}</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-muted-foreground text-sm">Keterangan <span className="text-danger">*</span></Label>
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="bg-background border-border text-foreground"
+              placeholder="Contoh: Selisih pembulatan fee G2G WD 08/06/2026"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-muted-foreground text-sm">Catatan tambahan (opsional)</Label>
+            <Input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="bg-background border-border text-foreground"
+              placeholder="Detail tambahan jika perlu..."
+            />
+          </div>
+
+          {msg && (
+            <div className={`flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${msg.type === "ok" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>
+              {msg.type === "ok" ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}
+              {msg.text}
+            </div>
+          )}
+
+          <Button
+            onClick={handleAdd}
+            disabled={saving || !amount || !reason.trim()}
+            className={cn("w-full text-background", type === "credit" ? "bg-success hover:bg-success/90" : "bg-danger hover:bg-danger/90")}
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+            {type === "credit" ? "Tambah" : "Kurangi"} Saldo
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Riwayat koreksi */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-foreground text-base">Riwayat Koreksi</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" /> Memuat...
+            </div>
+          ) : data.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Belum ada koreksi saldo.</p>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.map((row) => (
+                <div key={row.id} className="flex items-start justify-between px-4 py-3 hover:bg-background/50 gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={cn("text-sm font-semibold tabular-nums", row.type === "credit" ? "text-success" : "text-danger")}>
+                        {row.type === "credit" ? "+" : "−"}{formatRupiah(row.amount_idr)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(row.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-foreground mt-0.5">{row.reason}</p>
+                    {row.notes && <p className="text-xs text-muted-foreground mt-0.5">{row.notes}</p>}
+                  </div>
+                  <button
+                    onClick={() => setDeleteId(row.id)}
+                    className="rounded p-1 text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors shrink-0 mt-0.5"
+                    title="Hapus"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Delete dialog */}
+      <Dialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader><DialogTitle className="text-foreground">Hapus Koreksi?</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Koreksi ini akan dihapus dan saldo akan kembali ke nilai sebelumnya.</p>
+          <div className="flex gap-2 mt-2">
+            <Button variant="outline" className="flex-1 border-border" onClick={() => setDeleteId(null)}>Batal</Button>
+            <Button onClick={() => handleDelete(deleteId!)} className="flex-1 bg-danger hover:bg-danger/90 text-white">Hapus</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
 // ─── Tab: Profil Saya ─────────────────────────────────────────────────────────
 
 function ProfilTab() {
@@ -665,6 +906,11 @@ export default function PengaturanPage() {
                   <Users className="h-4 w-4 mr-2" /> Pengguna
                 </TabsTrigger>
               )}
+              {isAdmin && (
+                <TabsTrigger value="koreksi" className="data-[state=active]:bg-gold data-[state=active]:text-background">
+                  <SlidersHorizontal className="h-4 w-4 mr-2" /> Koreksi Saldo
+                </TabsTrigger>
+              )}
               <TabsTrigger value="profil" className="data-[state=active]:bg-gold data-[state=active]:text-background">
                 <User className="h-4 w-4 mr-2" /> Profil Saya
               </TabsTrigger>
@@ -679,6 +925,11 @@ export default function PengaturanPage() {
             {isAdmin && (
               <TabsContent value="users">
                 <UsersTab />
+              </TabsContent>
+            )}
+            {isAdmin && (
+              <TabsContent value="koreksi">
+                <KoreksiSaldoTab />
               </TabsContent>
             )}
             <TabsContent value="profil">

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { TrendingUp, TrendingDown, Wallet, Clock, Activity, ArrowUpRight, ArrowDownRight, ChevronDown, ChevronUp } from "lucide-react"
+import { TrendingUp, TrendingDown, Wallet, Clock, Activity, ArrowUpRight, ArrowDownRight } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -168,85 +168,5 @@ export function HeroStats() {
         </div>
       </div>
     </div>
-  )
-}
-
-export function SaldoBreakdown() {
-  const [data, setData] = useState<SaldoResult | null>(null)
-  const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    computeSaldo().then(setData)
-  }, [])
-
-  if (!data) return null
-
-  const rows: { label: string; sign: "+" | "-" | "="; value: number; sub?: string; warn?: boolean }[] = [
-    { label: "Modal Awal (initial_saldo)", sign: "+", value: data.initialSaldo },
-    { label: `Total Deposit (${data.countDeposits} entri)`, sign: "+", value: data.totalDeposits },
-    { label: `Profit Direct Selesai (${data.countDirectCompleted} transaksi)`, sign: "+", value: data.directCompletedProfits },
-    { label: `WD Diterima (${data.countWD} withdrawal)`, sign: "+", value: data.wdReceived },
-    {
-      label: `Pending Buy Cost (${data.countPendingG2G + data.countPendingDirect} tx)`,
-      sign: "-", value: data.pendingBuyCosts,
-      sub: `G2G ${fmt(data.pendingG2GBuyCosts)} · Direct ${fmt(data.pendingDirectBuyCosts)}`,
-    },
-    {
-      label: `G2G Selesai Belum WD (${data.countG2GUnwithdrawn} tx)`,
-      sign: "-", value: data.g2gUnwithdrawnBuyCosts,
-      warn: data.g2gUnwithdrawnBuyCosts > 0,
-    },
-    {
-      label: `G2G Selesai Sudah WD (${data.countG2GWithdrawn} tx) — modal dikurangi agar tidak dobel`,
-      sign: "-", value: data.g2gWithdrawnBuyCosts,
-    },
-    { label: `Total Pengeluaran (${data.countExpenses} entri)`, sign: "-", value: data.totalExpenses },
-    { label: "SALDO", sign: "=", value: data.saldo },
-  ]
-
-  return (
-    <Card className="border-border bg-card">
-      <CardHeader
-        className="flex flex-row items-center justify-between pb-3 cursor-pointer select-none"
-        onClick={() => setOpen(o => !o)}
-      >
-        <CardTitle className="text-sm font-medium text-muted-foreground">Breakdown Perhitungan Saldo</CardTitle>
-        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-      </CardHeader>
-      {open && (
-        <CardContent className="pt-0">
-          <div className="space-y-1 text-sm font-mono">
-            {rows.map((r, i) => (
-              <div key={i} className={cn(
-                "flex items-start justify-between gap-4 py-1.5 px-2 rounded",
-                r.sign === "=" ? "bg-primary/10 border border-primary/20 mt-2" : "hover:bg-muted/40",
-                r.warn ? "bg-yellow-500/10" : ""
-              )}>
-                <div className="flex-1 min-w-0">
-                  <span className={cn(
-                    "font-semibold mr-2",
-                    r.sign === "+" ? "text-success" : r.sign === "-" ? "text-danger" : "text-gold"
-                  )}>
-                    {r.sign}
-                  </span>
-                  <span className={cn("text-foreground", r.sign === "=" && "font-bold")}>{r.label}</span>
-                  {r.sub && <p className="text-xs text-muted-foreground ml-5 mt-0.5">{r.sub}</p>}
-                </div>
-                <span className={cn(
-                  "tabular-nums whitespace-nowrap font-semibold",
-                  r.sign === "+" ? "text-success" : r.sign === "-" ? "text-danger" : "text-gold text-base"
-                )}>
-                  {r.sign !== "=" ? "" : ""}{fmt(r.value)}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-            Jika saldo ≠ rekening asli, cari komponen mana yang angkanya berbeda dari realita.
-            Biasanya: harga beli di sistem ≠ yang dibayar ke supplier, atau ada pengeluaran yang belum dicatat.
-          </p>
-        </CardContent>
-      )}
-    </Card>
   )
 }
