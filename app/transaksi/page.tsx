@@ -51,6 +51,7 @@ function TransactionForm({
   const [sellPrice, setSellPrice] = useState(0)
   const [paymentFeePct, setPaymentFeePct] = useState(0)
   const [notes, setNotes] = useState("")
+  const [orderCode, setOrderCode] = useState("")
   const [status, setStatus] = useState<"pending" | "completed" | "cancelled">("pending")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,12 +66,13 @@ function TransactionForm({
       setSellPrice(editTx.sell_price_idr)
       setPaymentFeePct(editTx.payment_fee_pct ?? 0)
       setNotes(editTx.notes ?? "")
+      setOrderCode(editTx.order_code ?? "")
       setStatus(editTx.status)
       setBuyerVatPct(editTx.buyer_vat_pct ?? 0)
     } else {
       setChannel("g2g"); setDate(new Date().toISOString().slice(0, 10))
       setGoldAmount(0); setBuyPrice(0); setSellPrice(0)
-      setPaymentFeePct(0); setNotes(""); setStatus("pending"); setBuyerVatPct(0)
+      setPaymentFeePct(0); setNotes(""); setOrderCode(""); setStatus("pending"); setBuyerVatPct(0)
     }
   }, [editTx, open])
 
@@ -103,7 +105,7 @@ function TransactionForm({
       commission_fee_pct: channel === "g2g" ? fee.commissionPct : null,
       payment_fee_pct: channel === "direct" ? paymentFeePct : null,
       buyer_vat_pct: channel === "g2g" ? buyerVatPct : null,
-      status, profit_idr: profitIdr, notes: notes || null,
+      status, profit_idr: profitIdr, notes: notes || null, order_code: orderCode || null,
     }
     let dbErr
     if (isEdit) {
@@ -209,6 +211,13 @@ function TransactionForm({
               </div>
             )}
             <div className="col-span-2 space-y-1.5">
+              <Label className="text-muted-foreground text-sm">Kode Order</Label>
+              <Input value={orderCode} onChange={(e) => setOrderCode(e.target.value)}
+                className="bg-background border-border text-foreground font-mono text-sm"
+                placeholder="Paste kode order dari G2G..." />
+              <p className="text-xs text-muted-foreground">Kode order dari G2G — beberapa transaksi bisa share kode yang sama</p>
+            </div>
+            <div className="col-span-2 space-y-1.5">
               <Label className="text-muted-foreground text-sm">Catatan</Label>
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-background border-border text-foreground" placeholder="Nama buyer, game, dll." />
             </div>
@@ -309,7 +318,11 @@ export default function TransaksiPage() {
   const filtered = useMemo(() => transactions.filter((tx) => {
     if (filterChannel !== "all" && tx.channel !== filterChannel) return false
     if (filterStatus !== "all" && tx.status !== filterStatus) return false
-    if (search && !tx.notes?.toLowerCase().includes(search.toLowerCase()) && !tx.game_name.toLowerCase().includes(search.toLowerCase())) return false
+    if (search) {
+      const q = search.toLowerCase()
+      const match = tx.notes?.toLowerCase().includes(q) || tx.game_name.toLowerCase().includes(q) || tx.order_code?.toLowerCase().includes(q)
+      if (!match) return false
+    }
     return true
   }), [transactions, filterChannel, filterStatus, search])
 
@@ -579,10 +592,15 @@ export default function TransaksiPage() {
                       return (
                         <TableRow key={tx.id} className="border-border hover:bg-background/50">
                           <TableCell className="text-muted-foreground text-sm w-10">{idx + 1}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                            <div>{new Date(tx.transaction_date).toLocaleDateString("id-ID")}</div>
+                          <TableCell className="text-muted-foreground text-sm">
+                            <div className="text-foreground/90 whitespace-nowrap">{new Date(tx.transaction_date).toLocaleDateString("id-ID")}</div>
+                            {tx.order_code && (
+                              <div className="text-xs text-gold/80 font-mono truncate max-w-[150px] mt-0.5" title={tx.order_code}>
+                                {tx.order_code}
+                              </div>
+                            )}
                             {tx.notes && (
-                              <div className="text-xs text-muted-foreground/60 truncate max-w-[120px]" title={tx.notes}>
+                              <div className="text-xs text-muted-foreground truncate max-w-[150px]" title={tx.notes}>
                                 {tx.notes}
                               </div>
                             )}

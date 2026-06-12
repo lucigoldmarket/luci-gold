@@ -39,6 +39,7 @@ export interface Transaction {
   settled_at: string | null
   profit_idr: number | null
   notes: string | null
+  order_code: string | null
   created_by: string | null
   week_number: number
   withdrawal_id: string | null
