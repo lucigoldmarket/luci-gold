@@ -78,8 +78,6 @@ export function DashboardStats() {
       const g2gProfit = txs.filter((t: any) => t.channel === "g2g").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
       const directProfit = txs.filter((t: any) => t.channel === "direct").reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
 
-      // Avg margin = total profit / total modal keseluruhan * 100
-      // Modal per transaksi = buy_price_idr * gold_amount
       const totalModal = txs.reduce((s: number, t: any) => s + (t.buy_price_idr * t.gold_amount), 0)
       const avgMarginPct = totalModal > 0 ? (totalProfit / totalModal) * 100 : 0
 
@@ -88,6 +86,11 @@ export function DashboardStats() {
     }
     load()
   }, [])
+
+  // Profit kumulatif: gap formula — seluruh aset sekarang minus total yang pernah diinvestasikan
+  const cumulativeProfit = saldoData
+    ? (saldoData.saldo + saldoData.floatG2GPending + saldoData.g2gBalance) - (saldoData.initialSaldo + saldoData.totalDeposits)
+    : null
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
@@ -102,12 +105,12 @@ export function DashboardStats() {
         icon={<Clock className="h-4 w-4" />}
       />
 
-      {/* Total Profit: jumlah profit_idr dari semua transaksi completed */}
+      {/* Total Profit: gap formula (saldo + float + g2gBalance) - totalInvested */}
       <StatCard
         title="Total Profit"
-        value={profit ? compact(profit.totalProfit) : "—"}
-        sub={profit ? `${profit.txCount} transaksi selesai` : undefined}
-        subType={profit && profit.totalProfit > 0 ? "positive" : "neutral"}
+        value={cumulativeProfit != null ? compact(cumulativeProfit) : "—"}
+        sub="termasuk estimasi G2G pending"
+        subType={cumulativeProfit != null && cumulativeProfit > 0 ? "positive" : cumulativeProfit != null && cumulativeProfit < 0 ? "negative" : "neutral"}
         icon={<TrendingUp className="h-4 w-4" />}
       />
 
