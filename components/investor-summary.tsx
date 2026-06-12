@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PieChart, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { computeSaldo } from "@/lib/saldo"
 
 function formatRupiah(value: number): string {
   return new Intl.NumberFormat("id-ID", {
@@ -38,8 +39,8 @@ export function InvestorSummary() {
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const [{ data: txData }, { data: memberData }] = await Promise.all([
-        supabase.from("transactions").select("profit_idr").eq("status", "completed"),
+      const [saldo, { data: memberData }] = await Promise.all([
+        computeSaldo(),
         supabase
           .from("profit_sharing_members")
           .select("full_name, share_pct")
@@ -47,7 +48,9 @@ export function InvestorSummary() {
           .order("created_at"),
       ])
 
-      const profit = (txData ?? []).reduce((s: number, t: any) => s + (t.profit_idr ?? 0), 0)
+      // Formula: (saldo + pendingBuyCosts) - (initialSaldo + totalDeposits)
+      const profit = (saldo.saldo + saldo.pendingBuyCosts) - (saldo.initialSaldo + saldo.totalDeposits)
+
       const parsed: Member[] = (memberData ?? []).map((m: any, i: number) => ({
         full_name: m.full_name,
         share_pct: m.share_pct,
@@ -89,13 +92,13 @@ export function InvestorSummary() {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Total Profit */}
             <div className="rounded-xl border border-border bg-secondary/30 p-3">
               <p className="text-xs text-muted-foreground mb-1">Total Profit</p>
-              <p className="text-base font-semibold text-foreground tabular-nums">{formatRupiah(totalProfit)}</p>
+              <p className={cn("text-base font-semibold tabular-nums", totalProfit >= 0 ? "text-foreground" : "text-danger")}>
+                {formatRupiah(totalProfit)}
+              </p>
             </div>
 
-            {/* Member list */}
             {members.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-2">
                 Belum ada konfigurasi profit sharing.{" "}
@@ -115,7 +118,7 @@ export function InvestorSummary() {
                         <p className="text-xs text-muted-foreground">{m.share_pct}%</p>
                       </div>
                     </div>
-                    <span className={cn("font-semibold text-sm tabular-nums", m.color.text)}>
+                    <span className={cn("font-semibold text-sm tabular-nums", m.amount >= 0 ? m.color.text : "text-danger")}>
                       {formatRupiah(m.amount)}
                     </span>
                   </div>

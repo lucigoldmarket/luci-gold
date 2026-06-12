@@ -165,13 +165,14 @@ export default function LaporanPage() {
   const totalProfit = useMemo(() => transactions.reduce((s, t) => s + (t.profit_idr ?? 0), 0), [transactions])
 
   const memberShares = useMemo(() => {
-    const profitForSharing = totalProfit - totalExpenses
+    // Base profit sharing = cumulativeProfit (saldo sudah neto dari pengeluaran)
+    const base = cumulativeProfit ?? 0
     return psMembers.map((m, i) => ({
       ...m,
-      amount: profitForSharing * m.share_pct / 100,
+      amount: base * m.share_pct / 100,
       color: MEMBER_COLORS[i % MEMBER_COLORS.length],
     }))
-  }, [psMembers, totalProfit, totalExpenses])
+  }, [psMembers, cumulativeProfit])
 
   const investorProfileNames = useMemo(() => new Set(investors.map(i => i.full_name)), [investors])
   const individualAllocations = useMemo(() => memberShares.filter(m => investorProfileNames.has(m.full_name)), [memberShares, investorProfileNames])
@@ -179,8 +180,6 @@ export default function LaporanPage() {
     if (individualAllocations.length > 0) return null
     return memberShares.find(m => m.full_name.toLowerCase().trim() === 'investor') ?? null
   }, [memberShares, individualAllocations])
-
-  const profitAfterExpenses = totalProfit - totalExpenses
 
   const investorAmountMap = useMemo(() => {
     if (investors.length === 0) return {}
@@ -192,10 +191,10 @@ export default function LaporanPage() {
       return Object.fromEntries(individualAllocations.map(a => [a.full_name, a.amount]))
     }
     const allocated = memberShares.reduce((s, m) => s + m.amount, 0)
-    const remaining = Math.max(0, profitAfterExpenses - allocated)
+    const remaining = Math.max(0, (cumulativeProfit ?? 0) - allocated)
     const perPerson = remaining / investors.length
     return Object.fromEntries(investors.map(inv => [inv.full_name, perPerson]))
-  }, [investors, investorPoolMember, individualAllocations, memberShares, profitAfterExpenses])
+  }, [investors, investorPoolMember, individualAllocations, memberShares, cumulativeProfit])
 
   const weeklyData = useMemo(() => getWeeklyBreakdown(transactions, expensesList), [transactions, expensesList])
   const totalPsPct = useMemo(() => psMembers.reduce((s, m) => s + m.share_pct, 0), [psMembers])
