@@ -87,6 +87,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [visibleCols, setVisibleColsRaw] = useState<Set<WdColId>>(initWdCols)
   const [showColMenu, setShowColMenu] = useState(false)
+  const [colMenuPos, setColMenuPos] = useState({ top: 0, right: 0 })
   const colMenuRef = useRef<HTMLDivElement>(null)
 
   function setVisibleCols(next: Set<WdColId>) {
@@ -95,13 +96,13 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
   }
   const vis = (id: WdColId) => visibleCols.has(id)
 
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setShowColMenu(false)
+  function openColMenu() {
+    if (colMenuRef.current) {
+      const rect = colMenuRef.current.getBoundingClientRect()
+      setColMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
     }
-    if (showColMenu) document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
-  }, [showColMenu])
+    setShowColMenu(true)
+  }
   const [withdrawDate, setWithdrawDate] = useState(new Date().toISOString().slice(0, 10))
   const [manualAmount, setManualAmount] = useState(0)
   const [useManual, setUseManual] = useState(false)
@@ -239,9 +240,10 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
                   {selected.size === transactions.length ? "Batal semua" : "Pilih semua"}
                 </button>
               )}
-              <div className="relative" ref={colMenuRef}>
+              {showColMenu && <div className="fixed inset-0 z-40" onClick={() => setShowColMenu(false)} />}
+              <div ref={colMenuRef}>
                 <button
-                  onClick={() => setShowColMenu(v => !v)}
+                  onClick={() => showColMenu ? setShowColMenu(false) : openColMenu()}
                   className={cn("flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium transition-colors",
                     showColMenu ? "bg-gold/10 border-gold/40 text-gold" : "border-border text-muted-foreground hover:text-foreground"
                   )}
@@ -249,7 +251,11 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
                   <SlidersHorizontal className="h-3 w-3" /> Kolom
                 </button>
                 {showColMenu && (
-                  <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg p-2 min-w-[150px]">
+                  <div
+                    className="fixed z-50 bg-card border border-border rounded-lg shadow-lg p-2 min-w-[150px]"
+                    style={{ top: colMenuPos.top, right: colMenuPos.right }}
+                    onClick={e => e.stopPropagation()}
+                  >
                     {WD_COLS.map(col => (
                       <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-background/60 cursor-pointer text-sm">
                         <input type="checkbox" checked={visibleCols.has(col.id)}

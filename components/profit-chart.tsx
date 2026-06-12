@@ -54,7 +54,6 @@ export function ProfitChart() {
         const { data: txData } = await supabase
           .from("transactions")
           .select("transaction_date, profit_idr, channel")
-          .eq("status", "completed")
           .gte("transaction_date", days[0].date)
           .lte("transaction_date", days[6].date)
 
@@ -83,7 +82,6 @@ export function ProfitChart() {
         const { data: txData } = await supabase
           .from("transactions")
           .select("transaction_date, profit_idr, channel")
-          .eq("status", "completed")
           .gte("transaction_date", days[0].date)
 
         const byDate: Record<string, { g2g: number; direct: number }> = {}
@@ -109,7 +107,6 @@ export function ProfitChart() {
         const { data: txData } = await supabase
           .from("transactions")
           .select("transaction_date, profit_idr, channel")
-          .eq("status", "completed")
           .gte("transaction_date", `${months[0].key}-01`)
 
         const byMonth: Record<string, { g2g: number; direct: number }> = {}

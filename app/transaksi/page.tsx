@@ -358,6 +358,7 @@ export default function TransaksiPage() {
   const [showArchive, setShowArchive] = useState(false)
   const [visibleCols, setVisibleColsRaw] = useState<Set<TxColId>>(initVisibleCols)
   const [showColMenu, setShowColMenu] = useState(false)
+  const [colMenuPos, setColMenuPos] = useState({ top: 0, right: 0 })
   const colMenuRef = useRef<HTMLDivElement>(null)
 
   function setVisibleCols(next: Set<TxColId>) {
@@ -366,13 +367,13 @@ export default function TransaksiPage() {
   }
   const vis = (id: TxColId) => visibleCols.has(id)
 
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setShowColMenu(false)
+  function openColMenu() {
+    if (colMenuRef.current) {
+      const rect = colMenuRef.current.getBoundingClientRect()
+      setColMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
     }
-    if (showColMenu) document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
-  }, [showColMenu])
+    setShowColMenu(true)
+  }
 
   async function fetchData() {
     const supabase = createClient()
@@ -466,9 +467,10 @@ export default function TransaksiPage() {
                 {showArchive ? "Sembunyikan Arsip" : "Tampilkan Arsip"}
               </button>
               {/* Column visibility dropdown */}
-              <div className="relative" ref={colMenuRef}>
+              {showColMenu && <div className="fixed inset-0 z-40" onClick={() => setShowColMenu(false)} />}
+              <div ref={colMenuRef}>
                 <button
-                  onClick={() => setShowColMenu((v) => !v)}
+                  onClick={() => showColMenu ? setShowColMenu(false) : openColMenu()}
                   className={cn(
                     "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
                     showColMenu
@@ -480,7 +482,11 @@ export default function TransaksiPage() {
                   Kolom
                 </button>
                 {showColMenu && (
-                  <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg p-2 min-w-[160px]">
+                  <div
+                    className="fixed z-50 bg-card border border-border rounded-lg shadow-lg p-2 min-w-[160px]"
+                    style={{ top: colMenuPos.top, right: colMenuPos.right }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {TX_COLS.map((col) => (
                       <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-background/60 cursor-pointer text-sm">
                         <input
