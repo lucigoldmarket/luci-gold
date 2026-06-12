@@ -233,7 +233,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
       {/* Left: Transaction checklist */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base text-foreground flex items-center justify-between">
+          <CardTitle className="text-base text-foreground flex flex-wrap items-center justify-between gap-2">
             <span>Transaksi G2G Belum di-Withdraw</span>
             <div className="flex items-center gap-2">
               {transactions.length > 0 && (

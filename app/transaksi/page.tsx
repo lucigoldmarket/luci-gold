@@ -478,7 +478,7 @@ export default function TransaksiPage() {
       <div className="flex-1 page-content">
         <Header />
         <main className="p-4 md:p-6 lg:p-8">
-          <div className="flex items-center justify-end gap-2 mb-4">
+          <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
               <button
                 onClick={() => setShowArchive((v) => !v)}
                 className={cn(

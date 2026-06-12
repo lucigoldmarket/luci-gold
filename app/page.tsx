@@ -29,7 +29,7 @@ export default function DashboardPage() {
           </section>
 
           {/* Bottom grid: Recent Transactions + Profit Sharing */}
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
             <RecentTransactions />
             <InvestorSummary />
           </div>

@@ -451,7 +451,7 @@ export default function LaporanPage() {
                   {weeklyData.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-10">Tidak ada transaksi completed di periode ini.</p>
                   ) : (
-                    <Table>
+                    <div className="overflow-x-auto"><Table>
                       <TableHeader>
                         <TableRow className="border-border hover:bg-transparent">
                           <TableHead className="text-muted-foreground">Minggu ke-</TableHead>
@@ -502,7 +502,7 @@ export default function LaporanPage() {
                           </TableCell>
                         </TableRow>
                       </TableBody>
-                    </Table>
+                    </Table></div>
                   )}
                 </CardContent>
               </Card>

@@ -164,15 +164,16 @@
 
 /* Mobile responsive improvements */
 @media (max-width: 767px) {
-  /* Tables scroll horizontally on small screens */
+  /* Tables scroll horizontally */
+  .page-content .overflow-x-auto,
   .page-content .relative.w-full.overflow-auto {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Prevent table columns from being too cramped */
+  /* Table minimum width so columns don't collapse */
   .page-content table {
-    min-width: 480px;
+    min-width: 600px;
   }
 
   /* Better touch targets */
@@ -180,9 +181,31 @@
     min-height: 36px;
   }
 
-  /* Full-width selects and inputs on mobile */
+  /* Full-width selects on mobile */
   .page-content .w-52 {
     width: 100%;
+  }
+}
+
+/* Dialog: always fit screen on mobile, stack 2-col form grids */
+@media (max-width: 639px) {
+  [data-slot="dialog-content"] {
+    max-width: calc(100vw - 2rem) !important;
+    max-height: 90dvh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Stack 2-column form grids inside dialogs */
+  [data-slot="dialog-content"] .grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+  [data-slot="dialog-content"] .col-span-2 {
+    grid-column: span 1 !important;
+  }
+
+  /* Wrap toolbar flex rows */
+  .toolbar-row {
+    flex-wrap: wrap;
   }
 }
 
