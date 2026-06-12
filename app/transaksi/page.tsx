@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Search, ArrowUpRight, ArrowDownLeft, CheckCircle, AlertTriangle, Loader2, Pencil, Trash2, LineChart, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react"
+import { Plus, Search, ArrowUpRight, ArrowDownLeft, CheckCircle, AlertTriangle, Loader2, Pencil, Trash2, LineChart, ChevronDown, ChevronUp, ChevronsUpDown, Clipboard } from "lucide-react"
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts"
@@ -161,16 +161,27 @@ function TransactionForm({
             )}
             <div className="space-y-1.5">
               <Label className="text-muted-foreground text-sm">Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as any)}>
-                <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="completed" disabled={channel === "g2g"}>
-                    Completed{channel === "g2g" ? " (via Withdrawal)" : ""}
-                  </SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                {([
+                  { value: "pending", label: "Pending", activeClass: "bg-gold text-background border-gold" },
+                  { value: "completed", label: "Selesai", activeClass: "bg-success text-background border-success" },
+                  { value: "cancelled", label: "Batal", activeClass: "bg-danger text-background border-danger" },
+                ] as { value: "pending" | "completed" | "cancelled"; label: string; activeClass: string }[]).map((s) => {
+                  const disabled = s.value === "completed" && channel === "g2g"
+                  return (
+                    <button key={s.value} type="button"
+                      disabled={disabled}
+                      onClick={() => !disabled && setStatus(s.value)}
+                      className={cn(
+                        "flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors",
+                        status === s.value ? s.activeClass : "bg-background text-muted-foreground border-border",
+                        disabled && "opacity-30 cursor-not-allowed"
+                      )}>
+                      {s.label}
+                    </button>
+                  )
+                })}
+              </div>
               {channel === "g2g" && (
                 <p className="text-xs text-muted-foreground">
                   Status Selesai untuk G2G hanya bisa diatur melalui{" "}
@@ -212,9 +223,22 @@ function TransactionForm({
             )}
             <div className="col-span-2 space-y-1.5">
               <Label className="text-muted-foreground text-sm">Kode Order</Label>
-              <Input value={orderCode} onChange={(e) => setOrderCode(e.target.value)}
-                className="bg-background border-border text-foreground font-mono text-sm"
-                placeholder="Paste kode order dari G2G..." />
+              <div className="flex gap-2">
+                <Input value={orderCode} onChange={(e) => setOrderCode(e.target.value)}
+                  className="bg-background border-border text-foreground font-mono text-sm"
+                  placeholder="Paste kode order dari G2G..." />
+                <button type="button"
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText()
+                      setOrderCode(text.trim())
+                    } catch {}
+                  }}
+                  className="shrink-0 rounded-lg border border-border px-3 text-muted-foreground hover:text-foreground hover:border-foreground/30 hover:bg-background/50 transition-colors"
+                  title="Paste dari clipboard">
+                  <Clipboard className="h-4 w-4" />
+                </button>
+              </div>
               <p className="text-xs text-muted-foreground">Kode order dari G2G — beberapa transaksi bisa share kode yang sama</p>
             </div>
             <div className="col-span-2 space-y-1.5">
