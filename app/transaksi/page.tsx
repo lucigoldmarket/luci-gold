@@ -431,6 +431,30 @@ export default function TransaksiPage() {
     })
   }, [filtered, sortCol, sortDir])
 
+  // Warna untuk pengelompokan order_code yang sama
+  const ORDER_COLORS = [
+    "#f59e0b", // amber
+    "#3b82f6", // blue
+    "#8b5cf6", // violet
+    "#22c55e", // green
+    "#f43f5e", // rose
+    "#06b6d4", // cyan
+    "#f97316", // orange
+    "#ec4899", // pink
+  ]
+  function hashColor(str: string): string {
+    let h = 0
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) & 0xffff
+    return ORDER_COLORS[h % ORDER_COLORS.length]
+  }
+  const orderCodeColorMap = useMemo(() => {
+    const count: Record<string, number> = {}
+    for (const tx of sorted) if (tx.order_code) count[tx.order_code] = (count[tx.order_code] ?? 0) + 1
+    const map: Record<string, string> = {}
+    for (const [code, n] of Object.entries(count)) if (n >= 2) map[code] = hashColor(code)
+    return map
+  }, [sorted])
+
   const chartData = useMemo(() => {
     const byDate: Record<string, { g2g: number; direct: number }> = {}
     for (const tx of filtered) {
@@ -711,8 +735,16 @@ export default function TransaksiPage() {
                           {vis("keterangan") && (
                             <TableCell className="text-sm max-w-[180px]">
                               {tx.order_code && (
-                                <div className="text-xs text-gold/80 font-mono truncate" title={tx.order_code}>
-                                  {tx.order_code}
+                                <div className="flex items-center gap-1.5" title={tx.order_code}>
+                                  {orderCodeColorMap[tx.order_code] && (
+                                    <span
+                                      className="shrink-0 w-2 h-2 rounded-full"
+                                      style={{ backgroundColor: orderCodeColorMap[tx.order_code] }}
+                                    />
+                                  )}
+                                  <span className="text-xs text-gold/80 font-mono truncate">
+                                    {tx.order_code}
+                                  </span>
                                 </div>
                               )}
                               {tx.notes && (
