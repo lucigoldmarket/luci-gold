@@ -189,7 +189,7 @@ function TransactionForm({
                 <Input type="number" value={paymentFeePct || ""} onChange={(e) => setPaymentFeePct(Number(e.target.value))} className="bg-background border-border text-foreground" placeholder="0" min={0} step={0.01} />
               </div>
             )}
-            <div className="space-y-1.5">
+            <div className="col-span-2 space-y-1.5">
               <Label className="text-muted-foreground text-sm">Status</Label>
               <div className="flex gap-2">
                 {([
