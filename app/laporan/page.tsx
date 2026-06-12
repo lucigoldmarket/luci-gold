@@ -156,12 +156,12 @@ export default function LaporanPage() {
     load()
   }, [selectedMonth])
 
-  // Profit kumulatif menggunakan gap formula: (saldo + floatG2G) - totalInvested
+  // Profit kumulatif: (saldo + g2gBalance) - totalInvested
+  // floatG2GPending tidak dimasukkan — masih estimasi, belum tentu sama saat penarikan
   const cumulativeProfit = useMemo(() => {
     if (!saldoData) return null
     const totalInvested = saldoData.initialSaldo + saldoData.totalDeposits
-    const floatTotal = saldoData.floatG2GPending + saldoData.g2gBalance
-    return (saldoData.saldo + floatTotal) - totalInvested
+    return (saldoData.saldo + saldoData.g2gBalance) - totalInvested
   }, [saldoData])
 
   const totalProfit = useMemo(() => transactions.reduce((s, t) => s + (t.profit_idr ?? 0), 0), [transactions])
@@ -280,7 +280,7 @@ export default function LaporanPage() {
                         <p className={cn("text-xl font-bold tabular-nums", (cumulativeProfit ?? 0) >= 0 ? "text-gold" : "text-danger")}>
                           {cumulativeProfit != null ? formatRupiah(cumulativeProfit) : "—"}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">kumulatif · termasuk float G2G</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">kumulatif · saldo + G2G siap tarik</p>
                       </div>
                     </div>
                   </CardContent>

@@ -87,9 +87,10 @@ export function DashboardStats() {
     load()
   }, [])
 
-  // Profit kumulatif: gap formula — seluruh aset sekarang minus total yang pernah diinvestasikan
+  // Profit kumulatif: (saldo + g2gBalance) - totalInvested
+  // g2gBalance = G2G completed siap tarik (sudah pasti), floatG2GPending sengaja TIDAK dimasukkan karena masih estimasi
   const cumulativeProfit = saldoData
-    ? (saldoData.saldo + saldoData.floatG2GPending + saldoData.g2gBalance) - (saldoData.initialSaldo + saldoData.totalDeposits)
+    ? (saldoData.saldo + saldoData.g2gBalance) - (saldoData.initialSaldo + saldoData.totalDeposits)
     : null
 
   return (
@@ -109,7 +110,7 @@ export function DashboardStats() {
       <StatCard
         title="Total Profit"
         value={cumulativeProfit != null ? compact(cumulativeProfit) : "—"}
-        sub="termasuk estimasi G2G pending"
+        sub="saldo + G2G siap tarik"
         subType={cumulativeProfit != null && cumulativeProfit > 0 ? "positive" : cumulativeProfit != null && cumulativeProfit < 0 ? "negative" : "neutral"}
         icon={<TrendingUp className="h-4 w-4" />}
       />
