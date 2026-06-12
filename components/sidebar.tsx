@@ -18,6 +18,7 @@ import {
   PinOff,
   Clipboard,
   StickyNote,
+  Bot,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
@@ -34,6 +35,7 @@ const adminMenuItems = [
   { title: "Pengeluaran", icon: Receipt, href: "/pengeluaran" },
   { title: "Laporan", icon: BarChart3, href: "/laporan" },
   { title: "Catatan", icon: StickyNote, href: "/catatan" },
+  { title: "Bot Manager", icon: Bot, href: "/bot-manager" },
   { title: "Pengaturan", icon: Settings, href: "/pengaturan" },
 ]
 

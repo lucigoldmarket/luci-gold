@@ -19,6 +19,7 @@ const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
   "/pemodal": { title: "Pemodal", sub: "Daftar investor aktif" },
   "/pengaturan": { title: "Pengaturan", sub: "Konfigurasi fee dan pengguna" },
   "/catatan": { title: "Catatan", sub: "Catatan pribadi" },
+  "/bot-manager": { title: "Bot Manager", sub: "Kontrol bot Telegram dari sini" },
 }
 
 function getGreeting() {
