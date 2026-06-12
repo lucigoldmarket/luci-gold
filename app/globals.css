@@ -164,16 +164,12 @@
 
 /* Mobile responsive improvements */
 @media (max-width: 767px) {
-  /* Tables scroll horizontally */
+  /* Tables scroll horizontally inside their containers */
   .page-content .overflow-x-auto,
   .page-content .relative.w-full.overflow-auto {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-  }
-
-  /* Table minimum width so columns don't collapse */
-  .page-content table {
-    min-width: 600px;
+    max-width: 100%;
   }
 
   /* Better touch targets */
@@ -184,6 +180,20 @@
   /* Full-width selects on mobile */
   .page-content .w-52 {
     width: 100%;
+  }
+}
+
+/* Catatan two-panel layout — stack on mobile, side-by-side on md+ */
+@media (max-width: 767px) {
+  .catatan-layout {
+    flex-direction: column !important;
+  }
+  .catatan-sidebar {
+    width: 100% !important;
+    height: 11rem !important;
+    flex-shrink: 0;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
   }
 }
 
@@ -209,15 +219,16 @@
   }
 }
 
-/* Smooth page-content transition with sidebar */
+/* Page content — clip horizontal overflow so tables don't expand the whole page */
 .page-content {
+  overflow-x: hidden;
   min-height: 100vh;
 }
 
-/* ─── Page & Card Entrance Animations ─────────────────────────────────────── */
+/* ─── Keyframes ────────────────────────────────────────────────────────────── */
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -227,53 +238,114 @@
 }
 
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
+  from { opacity: 0; transform: scale(0.94); }
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* Apply fade-up to main page headings */
-.page-content main > div:first-child {
-  animation: fade-in 0.4s ease both;
+@keyframes grow-width {
+  from { width: 0 !important; }
 }
 
-/* Cards animate in with stagger via nth-child */
+@keyframes gold-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+
+@keyframes shimmer-slide {
+  from { background-position: -200% center; }
+  to   { background-position:  200% center; }
+}
+
+/* ─── Page Entrance ────────────────────────────────────────────────────────── */
+
+/* Fade-in the whole page main area */
+.page-content main {
+  animation: fade-in 0.35s ease both;
+}
+
+/* Staggered cards in grid */
 .page-content main .grid > * {
-  animation: fade-up 0.45s ease both;
+  animation: fade-up 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.page-content main .grid > *:nth-child(1) { animation-delay: 0.05s; }
-.page-content main .grid > *:nth-child(2) { animation-delay: 0.10s; }
-.page-content main .grid > *:nth-child(3) { animation-delay: 0.15s; }
-.page-content main .grid > *:nth-child(4) { animation-delay: 0.20s; }
-.page-content main .grid > *:nth-child(5) { animation-delay: 0.25s; }
+.page-content main .grid > *:nth-child(1) { animation-delay: 0.04s; }
+.page-content main .grid > *:nth-child(2) { animation-delay: 0.09s; }
+.page-content main .grid > *:nth-child(3) { animation-delay: 0.14s; }
+.page-content main .grid > *:nth-child(4) { animation-delay: 0.19s; }
+.page-content main .grid > *:nth-child(5) { animation-delay: 0.24s; }
+.page-content main .grid > *:nth-child(6) { animation-delay: 0.29s; }
 
-/* Table rows slide in */
+/* Table rows stagger in */
 .page-content tbody tr {
-  animation: fade-up 0.3s ease both;
+  animation: fade-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.page-content tbody tr:nth-child(1) { animation-delay: 0.02s; }
-.page-content tbody tr:nth-child(2) { animation-delay: 0.04s; }
-.page-content tbody tr:nth-child(3) { animation-delay: 0.06s; }
-.page-content tbody tr:nth-child(4) { animation-delay: 0.08s; }
-.page-content tbody tr:nth-child(5) { animation-delay: 0.10s; }
-.page-content tbody tr:nth-child(6) { animation-delay: 0.12s; }
-.page-content tbody tr:nth-child(7) { animation-delay: 0.14s; }
-.page-content tbody tr:nth-child(8) { animation-delay: 0.16s; }
+.page-content tbody tr:nth-child(1)  { animation-delay: 0.02s; }
+.page-content tbody tr:nth-child(2)  { animation-delay: 0.05s; }
+.page-content tbody tr:nth-child(3)  { animation-delay: 0.08s; }
+.page-content tbody tr:nth-child(4)  { animation-delay: 0.11s; }
+.page-content tbody tr:nth-child(5)  { animation-delay: 0.14s; }
+.page-content tbody tr:nth-child(6)  { animation-delay: 0.17s; }
+.page-content tbody tr:nth-child(7)  { animation-delay: 0.20s; }
+.page-content tbody tr:nth-child(8)  { animation-delay: 0.23s; }
+.page-content tbody tr:nth-child(9)  { animation-delay: 0.26s; }
+.page-content tbody tr:nth-child(10) { animation-delay: 0.29s; }
 
-/* Login card scale-in */
+/* Login card */
 .backdrop-blur-md {
   animation: scale-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Number counters smooth transition */
-.tabular-nums {
-  transition: color 0.2s ease;
+/* ─── Card Interactions ────────────────────────────────────────────────────── */
+
+/* Hover lift */
+[data-slot="card"] {
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+[data-slot="card"]:hover {
+  box-shadow: 0 6px 28px rgba(201, 168, 76, 0.09), 0 2px 6px rgba(0,0,0,0.45);
+  transform: translateY(-1px);
 }
 
-/* Progress bar entrance */
-@keyframes grow-width {
-  from { width: 0 !important; }
+/* ─── Button Micro-interactions ────────────────────────────────────────────── */
+
+button, a[class*="btn"] {
+  transition: transform 0.1s ease, opacity 0.15s ease;
 }
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ─── Table Row Hover ──────────────────────────────────────────────────────── */
+
+.page-content tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+/* ─── Stat Number Color Transitions ───────────────────────────────────────── */
+
+.tabular-nums {
+  transition: color 0.25s ease;
+}
+
+/* ─── Progress Bar Entrance ────────────────────────────────────────────────── */
+
 .page-content .rounded-full.transition-all {
   animation: grow-width 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: 0.4s;
+}
+
+/* ─── Gold shimmer on hero stat ────────────────────────────────────────────── */
+
+.text-gold-gradient {
+  background: linear-gradient(90deg, #A68B3D 0%, #E8C96B 35%, #C9A84C 55%, #E8C96B 75%, #A68B3D 100%);
+  background-size: 250% auto;
+  animation: shimmer-slide 4s linear infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Skeleton / Loading pulse override ───────────────────────────────────── */
+
+.animate-pulse {
+  animation: gold-pulse 1.6s ease-in-out infinite !important;
 }

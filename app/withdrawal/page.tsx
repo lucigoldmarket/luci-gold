@@ -231,7 +231,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       {/* Left: Transaction checklist */}
-      <Card className="bg-card border-border">
+      <Card className="bg-card border-border overflow-hidden">
         <CardHeader className="pb-3">
           <CardTitle className="text-base text-foreground flex flex-wrap items-center justify-between gap-2">
             <span>Transaksi G2G Belum di-Withdraw</span>
@@ -622,7 +622,7 @@ function RiwayatWithdrawal() {
         ))}
       </div>
 
-      <Card className="bg-card border-border">
+      <Card className="bg-card border-border overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">

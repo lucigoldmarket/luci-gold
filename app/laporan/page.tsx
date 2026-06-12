@@ -443,7 +443,7 @@ export default function LaporanPage() {
               </div>
 
               {/* Weekly Breakdown */}
-              <Card className="bg-card border-border mb-6">
+              <Card className="bg-card border-border overflow-hidden mb-6">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base text-foreground">Rekap per Minggu</CardTitle>
                 </CardHeader>

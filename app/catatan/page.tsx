@@ -109,9 +109,9 @@ export default function CatatanPage() {
       <Sidebar />
       <div className="flex-1 page-content flex flex-col">
         <Header />
-        <main className="flex flex-1 overflow-hidden" style={{ height: "calc(100dvh - 64px)" }}>
+        <main className="catatan-layout flex flex-1 overflow-hidden" style={{ height: "calc(100dvh - 64px)" }}>
           {/* Left: Note list */}
-          <aside className="w-64 shrink-0 border-r border-border flex flex-col bg-card/50">
+          <aside className="catatan-sidebar w-64 shrink-0 border-r border-border flex flex-col bg-card/50">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <span className="text-sm font-semibold text-foreground">Catatan</span>
               <button

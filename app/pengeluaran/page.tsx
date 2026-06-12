@@ -209,7 +209,7 @@ export default function PengeluaranPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border overflow-hidden">
             <CardContent className="p-0">
               {loading ? (
                 <div className="flex items-center justify-center py-12 text-muted-foreground">
