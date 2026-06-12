@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Search, ArrowUpRight, ArrowDownLeft, CheckCircle, AlertTriangle, Loader2, Pencil, Trash2, LineChart, ChevronDown, ChevronUp, ChevronsUpDown, Clipboard } from "lucide-react"
+import { Plus, Search, ArrowUpRight, ArrowDownLeft, CheckCircle, AlertTriangle, Loader2, Pencil, Trash2, LineChart, ChevronDown, ChevronUp, ChevronsUpDown, Clipboard, SlidersHorizontal, Archive } from "lucide-react"
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts"
@@ -30,6 +30,30 @@ function formatRupiah(num: number) {
 
 const DEFAULT_FEE: G2GFeeParams = {
   commissionPct: 7.99, vatPct: 11, withdrawalFeePct: 2.48, withdrawalFeeFixed: 0,
+}
+
+const TX_COLS = [
+  { id: "tanggal",    label: "Tanggal",    def: true },
+  { id: "keterangan", label: "Keterangan", def: true },
+  { id: "channel",    label: "Channel",    def: true },
+  { id: "gold",       label: "Gold",       def: true },
+  { id: "beli_unit",  label: "Beli/unit",  def: true },
+  { id: "modal",      label: "Modal",      def: true },
+  { id: "jual_unit",  label: "Jual/unit",  def: true },
+  { id: "gross_sell", label: "Gross Sell", def: false },
+  { id: "fee",        label: "Fee",        def: true },
+  { id: "profit",     label: "Profit",     def: true },
+  { id: "status",     label: "Status",     def: true },
+] as const
+type TxColId = typeof TX_COLS[number]["id"]
+
+function initVisibleCols(): Set<TxColId> {
+  if (typeof window === "undefined") return new Set(TX_COLS.filter(c => c.def).map(c => c.id))
+  try {
+    const saved = localStorage.getItem("transaksi-cols")
+    if (saved) return new Set(JSON.parse(saved) as TxColId[])
+  } catch {}
+  return new Set(TX_COLS.filter(c => c.def).map(c => c.id))
 }
 
 // ─── Transaction Form ─────────────────────────────────────────────────────────
@@ -57,6 +81,11 @@ function TransactionForm({
   const [error, setError] = useState<string | null>(null)
   const [buyerVatPct, setBuyerVatPct] = useState(0)
 
+  function handleVatChange(val: number) {
+    setBuyerVatPct(val)
+    if (typeof window !== "undefined") localStorage.setItem("last-buyer-vat", String(val))
+  }
+
   useEffect(() => {
     if (editTx) {
       setChannel(editTx.channel)
@@ -70,9 +99,10 @@ function TransactionForm({
       setStatus(editTx.status)
       setBuyerVatPct(editTx.buyer_vat_pct ?? 0)
     } else {
+      const savedVat = typeof window !== "undefined" ? Number(localStorage.getItem("last-buyer-vat") ?? "0") : 0
       setChannel("g2g"); setDate(new Date().toISOString().slice(0, 10))
       setGoldAmount(0); setBuyPrice(0); setSellPrice(0)
-      setPaymentFeePct(0); setNotes(""); setOrderCode(""); setStatus("pending"); setBuyerVatPct(0)
+      setPaymentFeePct(0); setNotes(""); setOrderCode(""); setStatus("pending"); setBuyerVatPct(savedVat)
     }
   }, [editTx, open])
 
@@ -194,12 +224,12 @@ function TransactionForm({
                 <Label className="text-muted-foreground text-sm">VAT Negara Buyer</Label>
                 <div className="flex flex-wrap gap-1.5 items-center">
                   {[
-                    { label: "0% ID/Other", value: 0 },
-                    { label: "+10% KR/AU", value: 10 },
-                    { label: "+20% UK/EU", value: 20 },
-                    { label: "+25% NO/SE", value: 25 },
+                    { label: "🇮🇩 0% ID/Other", value: 0 },
+                    { label: "🇰🇷🇦🇺 +10% KR/AU", value: 10 },
+                    { label: "🇬🇧🇪🇺 +20% UK/EU", value: 20 },
+                    { label: "🇳🇴🇸🇪 +25% NO/SE", value: 25 },
                   ].map(p => (
-                    <button key={p.value} type="button" onClick={() => setBuyerVatPct(p.value)}
+                    <button key={p.value} type="button" onClick={() => handleVatChange(p.value)}
                       className={cn("px-2.5 py-1 rounded-md text-xs border transition-colors",
                         buyerVatPct === p.value
                           ? "bg-gold text-background border-gold"
@@ -211,7 +241,7 @@ function TransactionForm({
                   <div className="flex items-center gap-1.5 ml-auto">
                     <span className="text-xs text-muted-foreground">Custom:</span>
                     <Input type="number" value={buyerVatPct || ""}
-                      onChange={(e) => setBuyerVatPct(Number(e.target.value))}
+                      onChange={(e) => handleVatChange(Number(e.target.value))}
                       onWheel={(e) => (e.target as HTMLInputElement).blur()}
                       className="w-16 h-7 text-xs bg-background border-border text-foreground px-2"
                       min={0} max={50} step={1} placeholder="%" />
@@ -325,11 +355,31 @@ export default function TransaksiPage() {
   const [showChart, setShowChart] = useState(false)
   const [sortCol, setSortCol] = useState<string>("transaction_date")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+  const [showArchive, setShowArchive] = useState(false)
+  const [visibleCols, setVisibleColsRaw] = useState<Set<TxColId>>(initVisibleCols)
+  const [showColMenu, setShowColMenu] = useState(false)
+  const colMenuRef = useRef<HTMLDivElement>(null)
+
+  function setVisibleCols(next: Set<TxColId>) {
+    setVisibleColsRaw(next)
+    if (typeof window !== "undefined") localStorage.setItem("transaksi-cols", JSON.stringify([...next]))
+  }
+  const vis = (id: TxColId) => visibleCols.has(id)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setShowColMenu(false)
+    }
+    if (showColMenu) document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [showColMenu])
 
   async function fetchData() {
     const supabase = createClient()
+    let txQuery = supabase.from("transactions").select("*").order("transaction_date", { ascending: false }).order("created_at", { ascending: false })
+    if (!showArchive) txQuery = txQuery.is("archived_period_id", null)
     const [{ data: txData }, { data: feeData }] = await Promise.all([
-      supabase.from("transactions").select("*").order("transaction_date", { ascending: false }).order("created_at", { ascending: false }),
+      txQuery,
       supabase.from("fee_config").select("*").eq("is_active", true).single(),
     ])
     if (txData) setTransactions(txData as Transaction[])
@@ -337,7 +387,7 @@ export default function TransaksiPage() {
     setLoading(false)
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchData() }, [showArchive])
 
   const filtered = useMemo(() => transactions.filter((tx) => {
     if (filterChannel !== "all" && tx.channel !== filterChannel) return false
@@ -403,6 +453,53 @@ export default function TransaksiPage() {
         <Header />
         <main className="p-4 md:p-6 lg:p-8">
           <div className="flex items-center justify-end gap-2 mb-4">
+              <button
+                onClick={() => setShowArchive((v) => !v)}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                  showArchive
+                    ? "bg-muted/30 border-muted-foreground/40 text-foreground"
+                    : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                )}
+              >
+                <Archive className="h-4 w-4" />
+                {showArchive ? "Sembunyikan Arsip" : "Tampilkan Arsip"}
+              </button>
+              {/* Column visibility dropdown */}
+              <div className="relative" ref={colMenuRef}>
+                <button
+                  onClick={() => setShowColMenu((v) => !v)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    showColMenu
+                      ? "bg-gold/10 border-gold/40 text-gold"
+                      : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                  )}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Kolom
+                </button>
+                {showColMenu && (
+                  <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg p-2 min-w-[160px]">
+                    {TX_COLS.map((col) => (
+                      <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-background/60 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={visibleCols.has(col.id)}
+                          onChange={(e) => {
+                            const next = new Set(visibleCols)
+                            if (e.target.checked) next.add(col.id)
+                            else next.delete(col.id)
+                            setVisibleCols(next)
+                          }}
+                          className="accent-gold"
+                        />
+                        <span className={visibleCols.has(col.id) ? "text-foreground" : "text-muted-foreground"}>{col.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setShowChart((v) => !v)}
                 className={cn(
@@ -567,17 +664,20 @@ export default function TransaksiPage() {
                     <TableRow className="border-border hover:bg-transparent">
                       <TableHead className="text-muted-foreground w-10">#</TableHead>
                       {([
-                        { key: "transaction_date", label: "Tanggal", align: "left" },
-                        { key: "channel", label: "Channel", align: "left" },
-                        { key: "gold_amount", label: "Gold", align: "right" },
-                        { key: "buy_price_idr", label: "Beli/unit", align: "right" },
-                        { key: "modal", label: "Modal", align: "right" },
-                        { key: "sell_price_idr", label: "Jual/unit", align: "right" },
-                        { key: "gross_sell", label: "Gross Sell", align: "right" },
-                        { key: null, label: "Fee", align: "right" },
-                        { key: "profit_idr", label: "Profit", align: "right" },
-                        { key: "status", label: "Status", align: "left" },
-                      ] as { key: string | null; label: string; align: string }[]).map(({ key, label, align }) => (
+                        { key: "transaction_date", colId: "tanggal",    label: "Tanggal",    align: "left" },
+                        { key: null,               colId: "keterangan", label: "Keterangan", align: "left" },
+                        { key: "channel",          colId: "channel",    label: "Channel",    align: "left" },
+                        { key: "gold_amount",      colId: "gold",       label: "Gold",       align: "right" },
+                        { key: "buy_price_idr",    colId: "beli_unit",  label: "Beli/unit",  align: "right" },
+                        { key: "modal",            colId: "modal",      label: "Modal",      align: "right" },
+                        { key: "sell_price_idr",   colId: "jual_unit",  label: "Jual/unit",  align: "right" },
+                        { key: "gross_sell",       colId: "gross_sell", label: "Gross Sell", align: "right" },
+                        { key: null,               colId: "fee",        label: "Fee",        align: "right" },
+                        { key: "profit_idr",       colId: "profit",     label: "Profit",     align: "right" },
+                        { key: "status",           colId: "status",     label: "Status",     align: "left" },
+                      ] as { key: string | null; colId: TxColId; label: string; align: string }[])
+                        .filter(({ colId }) => vis(colId))
+                        .map(({ key, label, align }) => (
                         <TableHead key={label}
                           className={cn("text-muted-foreground", align === "right" && "text-right", key && "cursor-pointer select-none hover:text-foreground transition-colors")}
                           onClick={key ? () => toggleSort(key) : undefined}
@@ -614,59 +714,89 @@ export default function TransaksiPage() {
                         ? `${txEffCommPct.toFixed(2)}%+${txEffWdPct.toFixed(2)}%${txBuyerVat > 0 ? ` (+${txBuyerVat}%VAT)` : ""}`
                         : tx.payment_fee_pct ? `${tx.payment_fee_pct}%` : "—"
                       return (
-                        <TableRow key={tx.id} className="border-border hover:bg-background/50">
+                        <TableRow key={tx.id} className={cn("border-border hover:bg-background/50", tx.archived_period_id && "opacity-60")}>
                           <TableCell className="text-muted-foreground text-sm w-10">{idx + 1}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            <div className="text-foreground/90 whitespace-nowrap">{new Date(tx.transaction_date).toLocaleDateString("id-ID")}</div>
-                            {tx.order_code && (
-                              <div className="text-xs text-gold/80 font-mono truncate max-w-[150px] mt-0.5" title={tx.order_code}>
-                                {tx.order_code}
-                              </div>
-                            )}
-                            {tx.notes && (
-                              <div className="text-xs text-muted-foreground truncate max-w-[150px]" title={tx.notes}>
-                                {tx.notes}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className={tx.channel === "g2g" ? "border-red-500/50 text-red-400 bg-red-500/10" : "border-blue-500/50 text-blue-400 bg-blue-500/10"}>
-                              {tx.channel === "g2g" ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownLeft className="h-3 w-3 mr-1" />}
-                              {tx.channel.toUpperCase()}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right text-foreground font-medium tabular-nums">
-                            {tx.gold_amount.toLocaleString("id-ID")}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground text-sm tabular-nums">
-                            {formatRupiah(tx.buy_price_idr)}
-                          </TableCell>
-                          <TableCell className="text-right text-foreground text-sm tabular-nums font-medium">
-                            {formatRupiah(modal)}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground text-sm tabular-nums">
-                            {formatRupiah(tx.sell_price_idr)}
-                          </TableCell>
-                          <TableCell className="text-right text-foreground text-sm tabular-nums">
-                            {formatRupiah(grossSell)}
-                          </TableCell>
-                          <TableCell className="text-right text-xs text-danger tabular-nums">
-                            {feeAmt > 0 ? `-${formatRupiah(Math.round(feeAmt))}` : feeLabel}
-                          </TableCell>
-                          <TableCell className="text-right font-medium tabular-nums">
-                            <span className={tx.profit_idr != null && tx.profit_idr >= 0 ? "text-success" : "text-danger"}>
-                              {tx.profit_idr != null ? formatRupiah(tx.profit_idr) : "—"}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className={
-                              tx.status === "completed" ? "border-success/50 text-success bg-success/10" :
-                              tx.status === "pending" ? "border-gold/50 text-gold bg-gold/10" :
-                              "border-danger/50 text-danger bg-danger/10"
-                            }>
-                              {tx.status === "completed" ? "Selesai" : tx.status === "pending" ? "Pending" : "Batal"}
-                            </Badge>
-                          </TableCell>
+                          {vis("tanggal") && (
+                            <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                              {new Date(tx.transaction_date).toLocaleDateString("id-ID")}
+                              {tx.archived_period_id && (
+                                <div className="text-xs text-muted-foreground/60 mt-0.5 flex items-center gap-1">
+                                  <Archive className="h-2.5 w-2.5" /> Arsip
+                                </div>
+                              )}
+                            </TableCell>
+                          )}
+                          {vis("keterangan") && (
+                            <TableCell className="text-sm max-w-[180px]">
+                              {tx.order_code && (
+                                <div className="text-xs text-gold/80 font-mono truncate" title={tx.order_code}>
+                                  {tx.order_code}
+                                </div>
+                              )}
+                              {tx.notes && (
+                                <div className="text-xs text-muted-foreground truncate" title={tx.notes}>
+                                  {tx.notes}
+                                </div>
+                              )}
+                              {!tx.order_code && !tx.notes && <span className="text-muted-foreground/40">—</span>}
+                            </TableCell>
+                          )}
+                          {vis("channel") && (
+                            <TableCell>
+                              <Badge variant="outline" className={tx.channel === "g2g" ? "border-red-500/50 text-red-400 bg-red-500/10" : "border-blue-500/50 text-blue-400 bg-blue-500/10"}>
+                                {tx.channel === "g2g" ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownLeft className="h-3 w-3 mr-1" />}
+                                {tx.channel.toUpperCase()}
+                              </Badge>
+                            </TableCell>
+                          )}
+                          {vis("gold") && (
+                            <TableCell className="text-right text-foreground font-medium tabular-nums">
+                              {tx.gold_amount.toLocaleString("id-ID")}
+                            </TableCell>
+                          )}
+                          {vis("beli_unit") && (
+                            <TableCell className="text-right text-muted-foreground text-sm tabular-nums">
+                              {formatRupiah(tx.buy_price_idr)}
+                            </TableCell>
+                          )}
+                          {vis("modal") && (
+                            <TableCell className="text-right text-foreground text-sm tabular-nums font-medium">
+                              {formatRupiah(modal)}
+                            </TableCell>
+                          )}
+                          {vis("jual_unit") && (
+                            <TableCell className="text-right text-muted-foreground text-sm tabular-nums">
+                              {formatRupiah(tx.sell_price_idr)}
+                            </TableCell>
+                          )}
+                          {vis("gross_sell") && (
+                            <TableCell className="text-right text-foreground text-sm tabular-nums">
+                              {formatRupiah(grossSell)}
+                            </TableCell>
+                          )}
+                          {vis("fee") && (
+                            <TableCell className="text-right text-xs text-danger tabular-nums">
+                              {feeAmt > 0 ? `-${formatRupiah(Math.round(feeAmt))}` : feeLabel}
+                            </TableCell>
+                          )}
+                          {vis("profit") && (
+                            <TableCell className="text-right font-medium tabular-nums">
+                              <span className={tx.profit_idr != null && tx.profit_idr >= 0 ? "text-success" : "text-danger"}>
+                                {tx.profit_idr != null ? formatRupiah(tx.profit_idr) : "—"}
+                              </span>
+                            </TableCell>
+                          )}
+                          {vis("status") && (
+                            <TableCell>
+                              <Badge variant="outline" className={
+                                tx.status === "completed" ? "border-success/50 text-success bg-success/10" :
+                                tx.status === "pending" ? "border-gold/50 text-gold bg-gold/10" :
+                                "border-danger/50 text-danger bg-danger/10"
+                              }>
+                                {tx.status === "completed" ? "Selesai" : tx.status === "pending" ? "Pending" : "Batal"}
+                              </Badge>
+                            </TableCell>
+                          )}
                           {isAdmin && (
                           <TableCell>
                             <div className="flex items-center gap-1">

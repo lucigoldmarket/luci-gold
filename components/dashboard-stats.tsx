@@ -94,7 +94,7 @@ export function DashboardStats() {
       {/* Float G2G: total modal yang sedang pending di G2G (uang yang sedang dipakai) */}
       <StatCard
         title="Float G2G"
-        value={saldoData ? compact(saldoData.pendingG2GBuyCosts) : "—"}
+        value={saldoData ? fmt(saldoData.pendingG2GBuyCosts) : "—"}
         sub={saldoData
           ? `${saldoData.countPendingG2G} transaksi pending · Siap tarik ${compact(saldoData.g2gBalance)}`
           : undefined}
@@ -173,29 +173,11 @@ export function HeroStats() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div className="space-y-0.5">
             <p className="text-xs text-muted-foreground">Total Modal</p>
             <p className="text-base font-semibold text-foreground tabular-nums">
               {saldoData ? fmt(saldoData.totalDeposits + saldoData.initialSaldo) : "—"}
-            </p>
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-xs text-muted-foreground">G2G Siap Tarik</p>
-            <p className="text-base font-semibold text-gold tabular-nums">
-              {saldoData ? fmt(saldoData.g2gBalance) : "—"}
-            </p>
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-xs text-muted-foreground">Total Profit</p>
-            <p className="text-base font-semibold text-foreground tabular-nums">
-              {profit ? fmt(profit.totalProfit) : "—"}
-            </p>
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-xs text-muted-foreground">Avg. Margin</p>
-            <p className="text-base font-semibold text-foreground tabular-nums">
-              {profit ? `${profit.avgMarginPct.toFixed(2)}%` : "—"}
             </p>
           </div>
         </div>

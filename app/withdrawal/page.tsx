@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { CheckCircle, Loader2, AlertTriangle, ArrowDownToLine, Pencil, Trash2 } from "lucide-react"
+import { CheckCircle, Loader2, AlertTriangle, ArrowDownToLine, Pencil, Trash2, SlidersHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { RequireAdmin } from "@/components/require-admin"
@@ -31,8 +31,29 @@ interface TxRow {
   buy_price_idr: number
   profit_idr: number | null
   notes: string | null
+  order_code?: string | null
   withdrawal_id?: string | null
   buyer_vat_pct?: number | null
+}
+
+const WD_COLS = [
+  { id: "tanggal",    label: "Tanggal",    def: true },
+  { id: "status",     label: "Status",     def: true },
+  { id: "keterangan", label: "Keterangan", def: true },
+  { id: "gold",       label: "Gold",       def: true },
+  { id: "harga_jual", label: "Harga Jual", def: true },
+  { id: "total_sell", label: "Total Sell", def: true },
+  { id: "profit",     label: "Profit",     def: true },
+] as const
+type WdColId = typeof WD_COLS[number]["id"]
+
+function initWdCols(): Set<WdColId> {
+  if (typeof window === "undefined") return new Set(WD_COLS.filter(c => c.def).map(c => c.id))
+  try {
+    const saved = localStorage.getItem("wd-cols")
+    if (saved) return new Set(JSON.parse(saved) as WdColId[])
+  } catch {}
+  return new Set(WD_COLS.filter(c => c.def).map(c => c.id))
 }
 
 interface WithdrawalRow {
@@ -64,6 +85,23 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [visibleCols, setVisibleColsRaw] = useState<Set<WdColId>>(initWdCols)
+  const [showColMenu, setShowColMenu] = useState(false)
+  const colMenuRef = useRef<HTMLDivElement>(null)
+
+  function setVisibleCols(next: Set<WdColId>) {
+    setVisibleColsRaw(next)
+    if (typeof window !== "undefined") localStorage.setItem("wd-cols", JSON.stringify([...next]))
+  }
+  const vis = (id: WdColId) => visibleCols.has(id)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setShowColMenu(false)
+    }
+    if (showColMenu) document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [showColMenu])
   const [withdrawDate, setWithdrawDate] = useState(new Date().toISOString().slice(0, 10))
   const [manualAmount, setManualAmount] = useState(0)
   const [useManual, setUseManual] = useState(false)
@@ -77,7 +115,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
 
       const [txResult, feeResult] = await Promise.all([
         supabase.from("transactions")
-          .select("id, transaction_date, gold_amount, sell_price_idr, buy_price_idr, profit_idr, notes, withdrawal_id, status, buyer_vat_pct")
+          .select("id, transaction_date, gold_amount, sell_price_idr, buy_price_idr, profit_idr, notes, order_code, withdrawal_id, status, buyer_vat_pct")
           .eq("channel", "g2g")
           .in("status", ["pending", "completed"])
           .is("withdrawal_id", null)
@@ -91,7 +129,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
       if (txResult.error) {
         const { data: fallback } = await supabase
           .from("transactions")
-          .select("id, transaction_date, gold_amount, sell_price_idr, buy_price_idr, profit_idr, notes, status, buyer_vat_pct")
+          .select("id, transaction_date, gold_amount, sell_price_idr, buy_price_idr, profit_idr, notes, order_code, status, buyer_vat_pct")
           .eq("channel", "g2g")
           .in("status", ["pending", "completed"])
           .order("transaction_date", { ascending: false })
@@ -195,11 +233,38 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
         <CardHeader className="pb-3">
           <CardTitle className="text-base text-foreground flex items-center justify-between">
             <span>Transaksi G2G Belum di-Withdraw</span>
-            {transactions.length > 0 && (
-              <button onClick={toggleAll} className="text-xs text-gold hover:underline font-normal">
-                {selected.size === transactions.length ? "Batal semua" : "Pilih semua"}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {transactions.length > 0 && (
+                <button onClick={toggleAll} className="text-xs text-gold hover:underline font-normal">
+                  {selected.size === transactions.length ? "Batal semua" : "Pilih semua"}
+                </button>
+              )}
+              <div className="relative" ref={colMenuRef}>
+                <button
+                  onClick={() => setShowColMenu(v => !v)}
+                  className={cn("flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium transition-colors",
+                    showColMenu ? "bg-gold/10 border-gold/40 text-gold" : "border-border text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <SlidersHorizontal className="h-3 w-3" /> Kolom
+                </button>
+                {showColMenu && (
+                  <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg p-2 min-w-[150px]">
+                    {WD_COLS.map(col => (
+                      <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-background/60 cursor-pointer text-sm">
+                        <input type="checkbox" checked={visibleCols.has(col.id)}
+                          onChange={e => {
+                            const next = new Set(visibleCols)
+                            if (e.target.checked) next.add(col.id); else next.delete(col.id)
+                            setVisibleCols(next)
+                          }} className="accent-gold" />
+                        <span className={visibleCols.has(col.id) ? "text-foreground" : "text-muted-foreground"}>{col.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -233,12 +298,13 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
                       )}
                     </button>
                   </TableHead>
-                  <TableHead className="text-muted-foreground">Tanggal</TableHead>
-                  <TableHead className="text-muted-foreground">Status</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Gold</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Harga Jual</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Total Sell</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Profit</TableHead>
+                  {vis("tanggal") && <TableHead className="text-muted-foreground">Tanggal</TableHead>}
+                  {vis("status") && <TableHead className="text-muted-foreground">Status</TableHead>}
+                  {vis("keterangan") && <TableHead className="text-muted-foreground">Keterangan</TableHead>}
+                  {vis("gold") && <TableHead className="text-muted-foreground text-right">Gold</TableHead>}
+                  {vis("harga_jual") && <TableHead className="text-muted-foreground text-right">Harga Jual</TableHead>}
+                  {vis("total_sell") && <TableHead className="text-muted-foreground text-right">Total Sell</TableHead>}
+                  {vis("profit") && <TableHead className="text-muted-foreground text-right">Profit</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -263,30 +329,53 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
                           {checked && <CheckCircle className="h-3 w-3 text-background" />}
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {new Date(tx.transaction_date).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={cn("border-0 text-xs",
-                          (tx as any).status === "completed" ? "bg-success/10 text-success" : "bg-gold/10 text-gold"
+                      {vis("tanggal") && (
+                        <TableCell className="text-muted-foreground text-sm">
+                          {new Date(tx.transaction_date).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                        </TableCell>
+                      )}
+                      {vis("status") && (
+                        <TableCell>
+                          <Badge variant="outline" className={cn("border-0 text-xs",
+                            (tx as any).status === "completed" ? "bg-success/10 text-success" : "bg-gold/10 text-gold"
+                          )}>
+                            {(tx as any).status === "completed" ? "Selesai" : "Pending"}
+                          </Badge>
+                        </TableCell>
+                      )}
+                      {vis("keterangan") && (
+                        <TableCell className="text-sm max-w-[160px]">
+                          {tx.order_code && (
+                            <div className="text-xs text-gold/80 font-mono truncate" title={tx.order_code}>{tx.order_code}</div>
+                          )}
+                          {tx.notes && (
+                            <div className="text-xs text-muted-foreground truncate" title={tx.notes}>{tx.notes}</div>
+                          )}
+                          {!tx.order_code && !tx.notes && <span className="text-muted-foreground/40">—</span>}
+                        </TableCell>
+                      )}
+                      {vis("gold") && (
+                        <TableCell className="text-right text-foreground text-sm">
+                          {tx.gold_amount.toLocaleString("id-ID")}
+                        </TableCell>
+                      )}
+                      {vis("harga_jual") && (
+                        <TableCell className="text-right text-muted-foreground text-sm">
+                          {formatRupiah(tx.sell_price_idr)}
+                        </TableCell>
+                      )}
+                      {vis("total_sell") && (
+                        <TableCell className="text-right text-foreground text-sm font-medium">
+                          {formatRupiah(totalSell)}
+                        </TableCell>
+                      )}
+                      {vis("profit") && (
+                        <TableCell className={cn("text-right text-sm font-medium",
+                          tx.profit_idr && tx.profit_idr > 0 ? "text-success" : "text-danger"
                         )}>
-                          {(tx as any).status === "completed" ? "Selesai" : "Pending"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right text-foreground text-sm">
-                        {tx.gold_amount.toLocaleString("id-ID")}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground text-sm">
-                        {formatRupiah(tx.sell_price_idr)}
-                      </TableCell>
-                      <TableCell className="text-right text-foreground text-sm font-medium">
-                        {formatRupiah(totalSell)}
-                      </TableCell>
-                      <TableCell className={cn("text-right text-sm font-medium",
-                        tx.profit_idr && tx.profit_idr > 0 ? "text-success" : "text-danger"
-                      )}>
-                        {tx.profit_idr != null ? formatRupiah(tx.profit_idr) : "—"}
-                      </TableCell>
+                          {tx.profit_idr != null ? formatRupiah(tx.profit_idr) : "—"}
+                        </TableCell>
+                      )}
                     </TableRow>
                   )
                 })}

@@ -144,9 +144,6 @@ export function ProfitChart() {
             </div>
             <div>
               <CardTitle className="text-lg font-semibold text-foreground">Grafik Profit</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Total: <span className={cn("font-semibold tabular-nums", totalProfit >= 0 ? "text-success" : "text-danger")}>{formatRupiah(totalProfit)}</span>
-              </p>
             </div>
           </div>
           <div className="flex rounded-lg border border-border overflow-hidden">

@@ -40,6 +40,7 @@ export interface Transaction {
   profit_idr: number | null
   notes: string | null
   order_code: string | null
+  archived_period_id: string | null
   created_by: string | null
   week_number: number
   withdrawal_id: string | null
@@ -65,6 +66,15 @@ export interface OperationalExpense {
   amount_idr: number
   expense_type: "rutin" | "non_rutin"
   week_number: number
+  created_at: string
+}
+
+export interface Period {
+  id: string
+  name: string
+  start_date: string
+  end_date: string
+  notes: string | null
   created_at: string
 }
 

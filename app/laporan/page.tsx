@@ -7,12 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { TrendingUp, Wallet, PieChart, Loader2, ArrowUpRight, ArrowDownLeft, Users, BarChart2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { TrendingUp, Wallet, PieChart, Loader2, ArrowUpRight, ArrowDownLeft, Users, BarChart2, Archive, ChevronDown, ChevronUp } from "lucide-react"
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts"
 import { createClient } from "@/lib/supabase/client"
-import type { Transaction, Profile } from "@/lib/types"
+import { computeSaldo, type SaldoResult } from "@/lib/saldo"
+import type { Transaction, Profile, Period } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 function formatRupiah(num: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -40,16 +46,27 @@ function getWeekOfMonth(dateStr: string): number {
   return Math.ceil(new Date(dateStr).getDate() / 7)
 }
 
-function getWeeklyBreakdown(transactions: Transaction[]) {
-  const byWeek: Record<number, { week: number; profit: number; count: number; g2g: number; direct: number }> = {}
+function getWeeklyBreakdown(
+  transactions: Transaction[],
+  expenses: { amount_idr: number; expense_date: string }[]
+) {
+  const byWeek: Record<number, { week: number; profit: number; count: number; g2g: number; direct: number; expenses: number }> = {}
+
   for (const tx of transactions) {
     const w = tx.week_number > 0 ? tx.week_number : getWeekOfMonth(tx.transaction_date)
-    if (!byWeek[w]) byWeek[w] = { week: w, profit: 0, count: 0, g2g: 0, direct: 0 }
+    if (!byWeek[w]) byWeek[w] = { week: w, profit: 0, count: 0, g2g: 0, direct: 0, expenses: 0 }
     byWeek[w].profit += tx.profit_idr ?? 0
     byWeek[w].count += 1
     if (tx.channel === "g2g") byWeek[w].g2g += tx.profit_idr ?? 0
     else byWeek[w].direct += tx.profit_idr ?? 0
   }
+
+  for (const exp of expenses) {
+    const w = getWeekOfMonth(exp.expense_date)
+    if (!byWeek[w]) byWeek[w] = { week: w, profit: 0, count: 0, g2g: 0, direct: 0, expenses: 0 }
+    byWeek[w].expenses += exp.amount_idr
+  }
+
   return Object.values(byWeek).sort((a, b) => a.week - b.week)
 }
 
@@ -70,6 +87,47 @@ export default function LaporanPage() {
   const [psMembers, setPsMembers] = useState<PSMember[]>([])
   const [loading, setLoading] = useState(true)
   const [totalExpenses, setTotalExpenses] = useState(0)
+  const [expensesList, setExpensesList] = useState<{ amount_idr: number; expense_date: string }[]>([])
+  const [saldoData, setSaldoData] = useState<SaldoResult | null>(null)
+
+  // Tutup Buku state
+  const [periods, setPeriods] = useState<Period[]>([])
+  const [showTutupDialog, setShowTutupDialog] = useState(false)
+  const [periodName, setPeriodName] = useState("")
+  const [periodStart, setPeriodStart] = useState("")
+  const [periodEnd, setPeriodEnd] = useState(new Date().toISOString().slice(0, 10))
+  const [periodNotes, setPeriodNotes] = useState("")
+  const [savingPeriod, setSavingPeriod] = useState(false)
+  const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null)
+  const [periodTxCounts, setPeriodTxCounts] = useState<Record<string, number>>({})
+
+  // Load saldo once (cumulative, not per-month)
+  useEffect(() => {
+    computeSaldo().then(setSaldoData)
+  }, [])
+
+  // Load periods
+  async function loadPeriods() {
+    const supabase = createClient()
+    const { data } = await supabase.from("periods").select("*").order("created_at", { ascending: false })
+    if (data) {
+      setPeriods(data as Period[])
+      // Count transactions per period
+      const counts: Record<string, number> = {}
+      await Promise.all(
+        (data as Period[]).map(async (p) => {
+          const { count } = await supabase
+            .from("transactions")
+            .select("id", { count: "exact", head: true })
+            .eq("archived_period_id", p.id)
+          counts[p.id] = count ?? 0
+        })
+      )
+      setPeriodTxCounts(counts)
+    }
+  }
+
+  useEffect(() => { loadPeriods() }, [])
 
   useEffect(() => {
     async function load() {
@@ -84,46 +142,48 @@ export default function LaporanPage() {
         supabase.from("transactions").select("*").eq("status", "completed").gte("transaction_date", from).lte("transaction_date", to),
         supabase.from("profiles").select("*").eq("role", "investor").eq("is_active", true),
         supabase.from("profit_sharing_members").select("full_name, share_pct").eq("is_active", true).order("created_at"),
-        supabase.from("operational_expenses").select("amount_idr").gte("expense_date", from).lte("expense_date", to),
+        supabase.from("operational_expenses").select("amount_idr, expense_date").gte("expense_date", from).lte("expense_date", to),
       ])
 
       setTransactions((txData as Transaction[]) ?? [])
       setInvestors((investorData as Profile[]) ?? [])
       setPsMembers((memberData as PSMember[]) ?? [])
-      setTotalExpenses(((expData ?? []) as { amount_idr: number }[]).reduce((s, e) => s + e.amount_idr, 0))
+      const expList = ((expData ?? []) as { amount_idr: number; expense_date: string }[])
+      setExpensesList(expList)
+      setTotalExpenses(expList.reduce((s, e) => s + e.amount_idr, 0))
       setLoading(false)
     }
     load()
   }, [selectedMonth])
 
-  const totalProfit = useMemo(() => transactions.reduce((s, t) => s + (t.profit_idr ?? 0), 0), [transactions])
-  const profitAfterExpenses = totalProfit - totalExpenses
+  // Profit kumulatif menggunakan gap formula: (saldo + floatG2G) - totalInvested
+  const cumulativeProfit = useMemo(() => {
+    if (!saldoData) return null
+    const totalInvested = saldoData.initialSaldo + saldoData.totalDeposits
+    const floatTotal = saldoData.floatG2GPending + saldoData.g2gBalance
+    return (saldoData.saldo + floatTotal) - totalInvested
+  }, [saldoData])
 
-  // Each PS member's calculated amount
-  const memberShares = useMemo(() =>
-    psMembers.map((m, i) => ({
+  const totalProfit = useMemo(() => transactions.reduce((s, t) => s + (t.profit_idr ?? 0), 0), [transactions])
+
+  const memberShares = useMemo(() => {
+    const profitForSharing = totalProfit - totalExpenses
+    return psMembers.map((m, i) => ({
       ...m,
-      amount: profitAfterExpenses * m.share_pct / 100,
+      amount: profitForSharing * m.share_pct / 100,
       color: MEMBER_COLORS[i % MEMBER_COLORS.length],
-    })),
-    [psMembers, profitAfterExpenses]
-  )
+    }))
+  }, [psMembers, totalProfit, totalExpenses])
 
   const investorProfileNames = useMemo(() => new Set(investors.map(i => i.full_name)), [investors])
-
-  // Check if any PS member name matches an investor profile (individual allocation mode)
-  const individualAllocations = useMemo(() =>
-    memberShares.filter(m => investorProfileNames.has(m.full_name)),
-    [memberShares, investorProfileNames]
-  )
-
-  // Find pool member named "investor" (case-insensitive) for equal-split mode
+  const individualAllocations = useMemo(() => memberShares.filter(m => investorProfileNames.has(m.full_name)), [memberShares, investorProfileNames])
   const investorPoolMember = useMemo(() => {
     if (individualAllocations.length > 0) return null
     return memberShares.find(m => m.full_name.toLowerCase().trim() === 'investor') ?? null
   }, [memberShares, individualAllocations])
 
-  // Per-investor amount map: { full_name → amount }
+  const profitAfterExpenses = totalProfit - totalExpenses
+
   const investorAmountMap = useMemo(() => {
     if (investors.length === 0) return {}
     if (investorPoolMember) {
@@ -133,20 +193,52 @@ export default function LaporanPage() {
     if (individualAllocations.length > 0) {
       return Object.fromEntries(individualAllocations.map(a => [a.full_name, a.amount]))
     }
-    // Fallback: equal split of remaining after all PS member deductions
     const allocated = memberShares.reduce((s, m) => s + m.amount, 0)
     const remaining = Math.max(0, profitAfterExpenses - allocated)
     const perPerson = remaining / investors.length
     return Object.fromEntries(investors.map(inv => [inv.full_name, perPerson]))
   }, [investors, investorPoolMember, individualAllocations, memberShares, profitAfterExpenses])
 
-  const totalInvestorAmount = useMemo(() =>
-    Object.values(investorAmountMap).reduce((s, v) => s + v, 0),
-    [investorAmountMap]
-  )
-
-  const weeklyData = useMemo(() => getWeeklyBreakdown(transactions), [transactions])
+  const weeklyData = useMemo(() => getWeeklyBreakdown(transactions, expensesList), [transactions, expensesList])
   const totalPsPct = useMemo(() => psMembers.reduce((s, m) => s + m.share_pct, 0), [psMembers])
+
+  async function handleTutupBuku() {
+    if (!periodName || !periodStart || !periodEnd) return
+    setSavingPeriod(true)
+    const supabase = createClient()
+    const { data: period, error: pErr } = await supabase
+      .from("periods")
+      .insert({ name: periodName, start_date: periodStart, end_date: periodEnd, notes: periodNotes || null })
+      .select("id").single()
+    if (pErr || !period) { setSavingPeriod(false); return }
+
+    await supabase.from("transactions")
+      .update({ archived_period_id: period.id })
+      .gte("transaction_date", periodStart)
+      .lte("transaction_date", periodEnd)
+      .is("archived_period_id", null)
+
+    setSavingPeriod(false)
+    setShowTutupDialog(false)
+    setPeriodName(""); setPeriodStart(""); setPeriodEnd(new Date().toISOString().slice(0, 10)); setPeriodNotes("")
+    await loadPeriods()
+    // Refresh saldo
+    computeSaldo().then(setSaldoData)
+  }
+
+  function openTutupDialog() {
+    // Auto-fill start_date from last period's end_date + 1 day
+    if (periods.length > 0) {
+      const lastEnd = periods[0].end_date
+      const next = new Date(lastEnd)
+      next.setDate(next.getDate() + 1)
+      setPeriodStart(next.toISOString().slice(0, 10))
+    } else {
+      setPeriodStart("")
+    }
+    setPeriodEnd(new Date().toISOString().slice(0, 10))
+    setShowTutupDialog(true)
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -154,7 +246,7 @@ export default function LaporanPage() {
       <div className="flex-1 page-content">
         <Header />
         <main className="p-4 md:p-6 lg:p-8">
-          <div className="flex justify-end mb-4">
+          <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
             <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
               <SelectTrigger className="w-52 bg-card border-border text-foreground">
                 <SelectValue />
@@ -165,6 +257,9 @@ export default function LaporanPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Button onClick={openTutupDialog} variant="outline" className="border-border text-foreground hover:border-gold/50 hover:text-gold gap-2">
+              <Archive className="h-4 w-4" /> Tutup Buku
+            </Button>
           </div>
 
           {loading ? (
@@ -174,18 +269,23 @@ export default function LaporanPage() {
           ) : (
             <>
               {/* Summary Cards */}
-              <div className="grid gap-4 md:grid-cols-3 mb-6">
+              <div className="grid gap-4 md:grid-cols-2 mb-6">
+                {/* Total Profit — kumulatif semua waktu */}
                 <Card className="bg-card border-border">
                   <CardContent className="pt-5">
                     <div className="flex items-center gap-4">
                       <div className="rounded-lg bg-gold/10 p-3"><TrendingUp className="h-5 w-5 text-gold" /></div>
                       <div>
-                        <p className="text-sm text-muted-foreground">Gross Profit</p>
-                        <p className="text-xl font-bold text-gold tabular-nums">{formatRupiah(totalProfit)}</p>
+                        <p className="text-sm text-muted-foreground">Total Profit</p>
+                        <p className={cn("text-xl font-bold tabular-nums", (cumulativeProfit ?? 0) >= 0 ? "text-gold" : "text-danger")}>
+                          {cumulativeProfit != null ? formatRupiah(cumulativeProfit) : "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">kumulatif · termasuk float G2G</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+                {/* Pengeluaran ops bulan ini */}
                 <Card className="bg-card border-border">
                   <CardContent className="pt-5">
                     <div className="flex items-center gap-4">
@@ -193,17 +293,7 @@ export default function LaporanPage() {
                       <div>
                         <p className="text-sm text-muted-foreground">Pengeluaran Ops</p>
                         <p className="text-xl font-bold text-danger tabular-nums">{formatRupiah(totalExpenses)}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-card border-border">
-                  <CardContent className="pt-5">
-                    <div className="flex items-center gap-4">
-                      <div className="rounded-lg bg-success/10 p-3"><PieChart className="h-5 w-5 text-success" /></div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Profit Bersih</p>
-                        <p className="text-xl font-bold text-success tabular-nums">{formatRupiah(profitAfterExpenses)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">bulan ini · {expensesList.length} item</p>
                       </div>
                     </div>
                   </CardContent>
@@ -253,11 +343,9 @@ export default function LaporanPage() {
                             </div>
                           </div>
                         ))}
-
-                        {/* Warning jika total != 100% */}
                         {Math.abs(totalPsPct - 100) > 0.01 && (
                           <p className="text-xs text-gold mt-2">
-                            ⚠ Total {totalPsPct.toFixed(2)}% — seharusnya 100%. Sisa {(100 - totalPsPct).toFixed(2)}% tidak terdistribusi.
+                            ⚠ Total {totalPsPct.toFixed(2)}% — seharusnya 100%.
                           </p>
                         )}
                       </div>
@@ -296,12 +384,7 @@ export default function LaporanPage() {
                               </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                            <XAxis
-                              dataKey="label"
-                              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                              tickLine={false}
-                              axisLine={false}
-                            />
+                            <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
                             <YAxis
                               tickFormatter={(v) => {
                                 const abs = Math.abs(v)
@@ -310,9 +393,7 @@ export default function LaporanPage() {
                                 return String(abs)
                               }}
                               tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
-                              tickLine={false}
-                              axisLine={false}
-                              width={36}
+                              tickLine={false} axisLine={false} width={36}
                             />
                             <Tooltip
                               content={({ active, payload, label }) => {
@@ -365,7 +446,7 @@ export default function LaporanPage() {
               </div>
 
               {/* Weekly Breakdown */}
-              <Card className="bg-card border-border">
+              <Card className="bg-card border-border mb-6">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base text-foreground">Rekap per Minggu</CardTitle>
                 </CardHeader>
@@ -389,13 +470,13 @@ export default function LaporanPage() {
                             </span>
                           </TableHead>
                           <TableHead className="text-muted-foreground text-right">Gross Profit</TableHead>
+                          <TableHead className="text-muted-foreground text-right">Pengeluaran</TableHead>
                           <TableHead className="text-muted-foreground text-right">Profit Bersih</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {weeklyData.map((row) => {
-                          const weekExpense = totalExpenses / (weeklyData.length || 1)
-                          const weekNet = row.profit - weekExpense
+                          const weekNet = row.profit - row.expenses
                           return (
                             <TableRow key={row.week} className="border-border hover:bg-background/50">
                               <TableCell className="text-foreground font-medium">Minggu {row.week}</TableCell>
@@ -403,7 +484,12 @@ export default function LaporanPage() {
                               <TableCell className="text-right text-gold tabular-nums">{formatRupiah(row.g2g)}</TableCell>
                               <TableCell className="text-right text-success tabular-nums">{formatRupiah(row.direct)}</TableCell>
                               <TableCell className="text-right font-medium text-foreground tabular-nums">{formatRupiah(row.profit)}</TableCell>
-                              <TableCell className="text-right text-success tabular-nums">{formatRupiah(weekNet)}</TableCell>
+                              <TableCell className="text-right text-danger tabular-nums text-sm">
+                                {row.expenses > 0 ? `-${formatRupiah(row.expenses)}` : "—"}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                <span className={weekNet >= 0 ? "text-success font-medium" : "text-danger font-medium"}>{formatRupiah(weekNet)}</span>
+                              </TableCell>
                             </TableRow>
                           )
                         })}
@@ -413,10 +499,68 @@ export default function LaporanPage() {
                           <TableCell className="text-right text-gold tabular-nums">{formatRupiah(transactions.filter(t => t.channel === "g2g").reduce((s, t) => s + (t.profit_idr ?? 0), 0))}</TableCell>
                           <TableCell className="text-right text-success tabular-nums">{formatRupiah(transactions.filter(t => t.channel === "direct").reduce((s, t) => s + (t.profit_idr ?? 0), 0))}</TableCell>
                           <TableCell className="text-right text-foreground tabular-nums">{formatRupiah(totalProfit)}</TableCell>
-                          <TableCell className="text-right text-success tabular-nums">{formatRupiah(profitAfterExpenses)}</TableCell>
+                          <TableCell className="text-right text-danger tabular-nums">{totalExpenses > 0 ? `-${formatRupiah(totalExpenses)}` : "—"}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            <span className={(totalProfit - totalExpenses) >= 0 ? "text-success" : "text-danger"}>{formatRupiah(totalProfit - totalExpenses)}</span>
+                          </TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Riwayat Tutup Buku */}
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Archive className="h-4 w-4 text-primary" />
+                      <CardTitle className="text-base text-foreground">Riwayat Tutup Buku</CardTitle>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{periods.length} periode</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {periods.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      Belum ada periode yang ditutup. Klik <span className="text-gold">Tutup Buku</span> untuk memulai.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {periods.map((p) => (
+                        <div key={p.id}>
+                          <button
+                            onClick={() => setExpandedPeriod(expandedPeriod === p.id ? null : p.id)}
+                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-background/50 transition-colors text-left"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Archive className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <div>
+                                <p className="text-sm font-medium text-foreground">{p.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(p.start_date).toLocaleDateString("id-ID")} – {new Date(p.end_date).toLocaleDateString("id-ID")}
+                                  {periodTxCounts[p.id] !== undefined && ` · ${periodTxCounts[p.id]} transaksi`}
+                                </p>
+                              </div>
+                            </div>
+                            {expandedPeriod === p.id
+                              ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                              : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            }
+                          </button>
+                          {expandedPeriod === p.id && (
+                            <div className="px-4 pb-3 bg-background/20">
+                              <div className="text-xs text-muted-foreground space-y-1 pl-7">
+                                <p>Dibuat: {new Date(p.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
+                                {p.notes && <p>Catatan: {p.notes}</p>}
+                                <p className="text-gold/70">Lihat transaksi arsip: aktifkan "Tampilkan Arsip" di halaman Transaksi</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -424,6 +568,55 @@ export default function LaporanPage() {
           )}
         </main>
       </div>
+
+      {/* Tutup Buku Dialog */}
+      <Dialog open={showTutupDialog} onOpenChange={(v) => !v && setShowTutupDialog(false)}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground flex items-center gap-2">
+              <Archive className="h-4 w-4" /> Tutup Buku
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Transaksi dalam rentang tanggal ini akan dipindahkan ke arsip dan tidak muncul di list transaksi utama.
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground text-sm">Nama Periode</Label>
+              <Input value={periodName} onChange={e => setPeriodName(e.target.value)}
+                className="bg-background border-border text-foreground"
+                placeholder="cth: Periode Mei 2026, Q2 2026..." />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-sm">Dari Tanggal</Label>
+                <Input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)}
+                  className="bg-background border-border text-foreground" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-sm">Sampai Tanggal</Label>
+                <Input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)}
+                  className="bg-background border-border text-foreground" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground text-sm">Catatan (opsional)</Label>
+              <Input value={periodNotes} onChange={e => setPeriodNotes(e.target.value)}
+                className="bg-background border-border text-foreground" placeholder="Catatan tambahan..." />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1 border-border" onClick={() => setShowTutupDialog(false)}>Batal</Button>
+              <Button
+                onClick={handleTutupBuku}
+                disabled={savingPeriod || !periodName || !periodStart || !periodEnd}
+                className="flex-1 bg-gold hover:bg-gold/90 text-background"
+              >
+                {savingPeriod ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tutup Buku"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
