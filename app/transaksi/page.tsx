@@ -467,7 +467,7 @@ export default function TransaksiPage() {
                 {showArchive ? "Sembunyikan Arsip" : "Tampilkan Arsip"}
               </button>
               {/* Column visibility dropdown */}
-              {showColMenu && <div className="fixed inset-0 z-40" onClick={() => setShowColMenu(false)} />}
+              {showColMenu && <div className="fixed inset-0 z-[9998]" onClick={() => setShowColMenu(false)} />}
               <div ref={colMenuRef}>
                 <button
                   onClick={() => showColMenu ? setShowColMenu(false) : openColMenu()}
@@ -483,7 +483,7 @@ export default function TransaksiPage() {
                 </button>
                 {showColMenu && (
                   <div
-                    className="fixed z-50 bg-card border border-border rounded-lg shadow-lg p-2 min-w-[160px]"
+                    className="fixed z-[9999] bg-card border border-border rounded-lg shadow-lg p-2 min-w-[160px]"
                     style={{ top: colMenuPos.top, right: colMenuPos.right }}
                     onClick={(e) => e.stopPropagation()}
                   >

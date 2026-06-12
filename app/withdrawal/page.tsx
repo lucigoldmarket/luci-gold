@@ -240,7 +240,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
                   {selected.size === transactions.length ? "Batal semua" : "Pilih semua"}
                 </button>
               )}
-              {showColMenu && <div className="fixed inset-0 z-40" onClick={() => setShowColMenu(false)} />}
+              {showColMenu && <div className="fixed inset-0 z-[9998]" onClick={() => setShowColMenu(false)} />}
               <div ref={colMenuRef}>
                 <button
                   onClick={() => showColMenu ? setShowColMenu(false) : openColMenu()}
@@ -252,7 +252,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
                 </button>
                 {showColMenu && (
                   <div
-                    className="fixed z-50 bg-card border border-border rounded-lg shadow-lg p-2 min-w-[150px]"
+                    className="fixed z-[9999] bg-card border border-border rounded-lg shadow-lg p-2 min-w-[150px]"
                     style={{ top: colMenuPos.top, right: colMenuPos.right }}
                     onClick={e => e.stopPropagation()}
                   >
