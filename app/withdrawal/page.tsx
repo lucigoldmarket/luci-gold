@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
+import { createPortal } from "react-dom"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -240,7 +241,6 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
                   {selected.size === transactions.length ? "Batal semua" : "Pilih semua"}
                 </button>
               )}
-              {showColMenu && <div className="fixed inset-0 z-[9998]" onClick={() => setShowColMenu(false)} />}
               <div ref={colMenuRef}>
                 <button
                   onClick={() => showColMenu ? setShowColMenu(false) : openColMenu()}
@@ -250,25 +250,6 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
                 >
                   <SlidersHorizontal className="h-3 w-3" /> Kolom
                 </button>
-                {showColMenu && (
-                  <div
-                    className="fixed z-[9999] bg-card border border-border rounded-lg shadow-lg p-2 min-w-[150px]"
-                    style={{ top: colMenuPos.top, right: colMenuPos.right }}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    {WD_COLS.map(col => (
-                      <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-background/60 cursor-pointer text-sm">
-                        <input type="checkbox" checked={visibleCols.has(col.id)}
-                          onChange={e => {
-                            const next = new Set(visibleCols)
-                            if (e.target.checked) next.add(col.id); else next.delete(col.id)
-                            setVisibleCols(next)
-                          }} className="accent-gold" />
-                        <span className={visibleCols.has(col.id) ? "text-foreground" : "text-muted-foreground"}>{col.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </CardTitle>
@@ -538,6 +519,29 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
           </CardContent>
         </Card>
       </div>
+      {showColMenu && typeof document !== "undefined" && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setShowColMenu(false)} />
+          <div
+            className="fixed z-[9999] bg-card border border-border rounded-lg shadow-lg p-2 min-w-[150px]"
+            style={{ top: colMenuPos.top, right: colMenuPos.right }}
+            onClick={e => e.stopPropagation()}
+          >
+            {WD_COLS.map(col => (
+              <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-background/60 cursor-pointer text-sm">
+                <input type="checkbox" checked={visibleCols.has(col.id)}
+                  onChange={e => {
+                    const next = new Set(visibleCols)
+                    if (e.target.checked) next.add(col.id); else next.delete(col.id)
+                    setVisibleCols(next)
+                  }} className="accent-gold" />
+                <span className={visibleCols.has(col.id) ? "text-foreground" : "text-muted-foreground"}>{col.label}</span>
+              </label>
+            ))}
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   )
 }
