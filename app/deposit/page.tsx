@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Plus, Loader2, Pencil, Trash2, TrendingUp } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { RequireAdmin } from "@/components/require-admin"
+import { useProfile } from "@/lib/hooks/use-profile"
 
 function fmt(n: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
@@ -78,6 +78,8 @@ function DepositForm({ open, onClose, onSaved, edit }: { open: boolean; onClose:
 }
 
 export default function DepositPage() {
+  const { profile } = useProfile()
+  const isAdmin = profile?.role === "admin"
   const [deposits, setDeposits] = useState<Deposit[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -103,17 +105,18 @@ export default function DepositPage() {
   for (const d of deposits) byInvestor[d.investor_name] = (byInvestor[d.investor_name] ?? 0) + d.amount_idr
 
   return (
-    <RequireAdmin>
     <div className="flex min-h-screen bg-background">
       <Sidebar />
       <div className="flex-1 page-content">
         <Header />
         <main className="p-4 md:p-6 lg:p-8">
+          {isAdmin && (
           <div className="flex justify-end mb-4">
             <Button onClick={() => { setEditItem(undefined); setShowForm(true) }} className="bg-gold hover:bg-gold/90 text-background">
               <Plus className="h-4 w-4 mr-2" /> Catat Deposit
             </Button>
           </div>
+          )}
 
           {/* Total + per investor */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
@@ -155,7 +158,7 @@ export default function DepositPage() {
                       <TableHead className="text-muted-foreground">Investor / Sumber</TableHead>
                       <TableHead className="text-muted-foreground text-right">Nominal</TableHead>
                       <TableHead className="text-muted-foreground">Catatan</TableHead>
-                      <TableHead className="w-16"></TableHead>
+                      {isAdmin && <TableHead className="w-16"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -167,12 +170,14 @@ export default function DepositPage() {
                         <TableCell className="text-foreground font-medium">{d.investor_name}</TableCell>
                         <TableCell className="text-right text-success font-semibold tabular-nums">+{fmt(d.amount_idr)}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">{d.notes ?? "—"}</TableCell>
+                        {isAdmin && (
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <button onClick={() => { setEditItem(d); setShowForm(true) }} className="rounded p-1 text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
                             <button onClick={() => setDeleteId(d.id)} className="rounded p-1 text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
                           </div>
                         </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -183,7 +188,8 @@ export default function DepositPage() {
         </main>
       </div>
 
-      <DepositForm open={showForm} onClose={() => { setShowForm(false); setEditItem(undefined) }} onSaved={load} edit={editItem} />
+      {isAdmin && <DepositForm open={showForm} onClose={() => { setShowForm(false); setEditItem(undefined) }} onSaved={load} edit={editItem} />}
+      {isAdmin && (
       <Dialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
         <DialogContent className="bg-card border-border max-w-sm">
           <DialogHeader><DialogTitle className="text-foreground">Hapus Deposit?</DialogTitle></DialogHeader>
@@ -194,7 +200,7 @@ export default function DepositPage() {
           </div>
         </DialogContent>
       </Dialog>
+      )}
     </div>
-    </RequireAdmin>
   )
 }

@@ -43,9 +43,10 @@ const investorMenuItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/" },
   { title: "Kalkulator G2G", icon: Calculator, href: "/kalkulator" },
   { title: "Transaksi", icon: FileText, href: "/transaksi" },
+  { title: "Deposit", icon: Coins, href: "/deposit" },
+  { title: "Withdrawal", icon: ArrowDownToLine, href: "/withdrawal" },
   { title: "Pengeluaran", icon: Receipt, href: "/pengeluaran" },
   { title: "Laporan", icon: BarChart3, href: "/laporan" },
-  { title: "Catatan", icon: StickyNote, href: "/catatan" },
   { title: "Pengaturan", icon: Settings, href: "/pengaturan" },
 ]
 

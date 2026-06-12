@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { CheckCircle, Loader2, AlertTriangle, ArrowDownToLine, Pencil, Trash2, SlidersHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { RequireAdmin } from "@/components/require-admin"
+import { useProfile } from "@/lib/hooks/use-profile"
 
 function formatRupiah(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -548,7 +548,7 @@ function CatatWithdrawal({ onDone }: { onDone: () => void }) {
 
 // ─── Tab: Riwayat Withdrawal ──────────────────────────────────────────────────
 
-function RiwayatWithdrawal() {
+function RiwayatWithdrawal({ isAdmin }: { isAdmin: boolean }) {
   const [data, setData] = useState<WithdrawalRow[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -643,7 +643,7 @@ function RiwayatWithdrawal() {
                   <TableHead className="text-muted-foreground text-right">Fee</TableHead>
                   <TableHead className="text-muted-foreground text-right">Net Diterima</TableHead>
                   <TableHead className="text-muted-foreground">Catatan</TableHead>
-                  <TableHead className="w-16"></TableHead>
+                  {isAdmin && <TableHead className="w-16"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -660,6 +660,7 @@ function RiwayatWithdrawal() {
                       </TableCell>
                       <TableCell className="text-right text-success font-medium tabular-nums">{formatRupiah(w.amount_received_idr)}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{w.notes ?? "—"}</TableCell>
+                      {isAdmin && (
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <button onClick={() => startEdit(w)}
@@ -672,6 +673,7 @@ function RiwayatWithdrawal() {
                           </button>
                         </div>
                       </TableCell>
+                      )}
                     </TableRow>
                   )
                 })}
@@ -727,35 +729,39 @@ function RiwayatWithdrawal() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function WithdrawalPage() {
+  const { profile } = useProfile()
+  const isAdmin = profile?.role === "admin"
   const [refreshKey, setRefreshKey] = useState(0)
 
   return (
-    <RequireAdmin>
-      <div className="flex min-h-screen bg-background">
-        <Sidebar />
-        <div className="flex-1 page-content">
-          <Header />
-          <main className="p-4 md:p-6 lg:p-8">
-            <Tabs defaultValue="catat">
-              <TabsList className="bg-card border border-border">
+    <div className="flex min-h-screen bg-background">
+      <Sidebar />
+      <div className="flex-1 page-content">
+        <Header />
+        <main className="p-4 md:p-6 lg:p-8">
+          <Tabs defaultValue={isAdmin ? "catat" : "riwayat"}>
+            <TabsList className="bg-card border border-border">
+              {isAdmin && (
                 <TabsTrigger value="catat" className="data-[state=active]:bg-gold data-[state=active]:text-background">
                   <ArrowDownToLine className="h-4 w-4 mr-2" /> Catat Withdrawal
                 </TabsTrigger>
-                <TabsTrigger value="riwayat" className="data-[state=active]:bg-gold data-[state=active]:text-background">
-                  Riwayat
-                </TabsTrigger>
-              </TabsList>
+              )}
+              <TabsTrigger value="riwayat" className="data-[state=active]:bg-gold data-[state=active]:text-background">
+                Riwayat
+              </TabsTrigger>
+            </TabsList>
 
+            {isAdmin && (
               <TabsContent value="catat" className="mt-6">
                 <CatatWithdrawal key={refreshKey} onDone={() => setRefreshKey((k) => k + 1)} />
               </TabsContent>
-              <TabsContent value="riwayat" className="mt-6">
-                <RiwayatWithdrawal key={refreshKey} />
-              </TabsContent>
-            </Tabs>
-          </main>
-        </div>
+            )}
+            <TabsContent value="riwayat" className="mt-6">
+              <RiwayatWithdrawal key={refreshKey} isAdmin={isAdmin} />
+            </TabsContent>
+          </Tabs>
+        </main>
       </div>
-    </RequireAdmin>
+    </div>
   )
 }
