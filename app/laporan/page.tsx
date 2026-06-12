@@ -159,7 +159,7 @@ export default function LaporanPage() {
   const cumulativeProfit = useMemo(() => {
     if (!saldoData) return null
     const totalInvested = saldoData.initialSaldo + saldoData.totalDeposits
-    return (saldoData.saldo + saldoData.floatG2GPending + saldoData.g2gBalance) - totalInvested
+    return (saldoData.saldo + saldoData.pendingBuyCosts) - totalInvested
   }, [saldoData])
 
   const totalProfit = useMemo(() => transactions.reduce((s, t) => s + (t.profit_idr ?? 0), 0), [transactions])
@@ -278,7 +278,7 @@ export default function LaporanPage() {
                         <p className={cn("text-xl font-bold tabular-nums", (cumulativeProfit ?? 0) >= 0 ? "text-gold" : "text-danger")}>
                           {cumulativeProfit != null ? formatRupiah(cumulativeProfit) : "—"}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">kumulatif · termasuk float G2G</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">kumulatif · profit dari transaksi selesai</p>
                       </div>
                     </div>
                   </CardContent>

@@ -88,7 +88,7 @@ export function DashboardStats() {
   }, [])
 
   const cumulativeProfit = saldoData
-    ? (saldoData.saldo + saldoData.floatG2GPending + saldoData.g2gBalance) - (saldoData.initialSaldo + saldoData.totalDeposits)
+    ? (saldoData.saldo + saldoData.pendingBuyCosts) - (saldoData.initialSaldo + saldoData.totalDeposits)
     : null
 
   return (
@@ -108,7 +108,7 @@ export function DashboardStats() {
       <StatCard
         title="Total Profit"
         value={cumulativeProfit != null ? compact(cumulativeProfit) : "—"}
-        sub="termasuk estimasi G2G pending"
+        sub="profit dari transaksi selesai"
         subType={cumulativeProfit != null && cumulativeProfit > 0 ? "positive" : cumulativeProfit != null && cumulativeProfit < 0 ? "negative" : "neutral"}
         icon={<TrendingUp className="h-4 w-4" />}
       />
